@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://YOUR-SITE.vercel.app"><strong>Open the app</strong></a>
+  <a href="https://sayrolivares.github.io/professional-metronome/"><strong>Open the app</strong></a>
 </p>
 
 ---
