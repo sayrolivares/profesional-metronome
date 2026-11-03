@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="227 225 800 800">
+  <rect x="227" y="225" width="800" height="800" rx="176" fill="#f4efe8"/>
+  <defs><clipPath id="fv-in"><path d="M614 406H640Q674 406 686 438L829 843Q869 946 777 946H478Q386 946 426 843L566 438Q578 406 614 406Z"/></clipPath></defs>
+  <circle cx="627" cy="487" r="200" style="fill:#d48a69"/>
+  <path d="M614 406H640Q674 406 686 438L829 843Q869 946 777 946H478Q386 946 426 843L566 438Q578 406 614 406Z" style="fill:#f4efe8"/>
+  <rect x="432" y="862" width="390" height="130" rx="66" style="fill:#33736f" clip-path="url(#fv-in)"/>
+  <path d="M614 406H640Q674 406 686 438L829 843Q869 946 777 946H478Q386 946 426 843L566 438Q578 406 614 406Z" style="fill:none;stroke:#333333;stroke-width:34;stroke-linejoin:round"/>
+  <path d="M626 468V832" style="fill:none;stroke:#8b8676;stroke-width:8;stroke-linecap:round"/>
+  <path d="M596 547H658M592 627H662M587 706H668" style="fill:none;stroke:#6b6657;stroke-width:9;stroke-linecap:round"/>
+  <path d="M798 508L680 790" style="fill:none;stroke:#f4efe8;stroke-width:50;stroke-linecap:round"/>
+  <circle cx="678" cy="797" r="55" style="fill:#f4efe8"/>
+  <path d="M798 508L680 790" style="fill:none;stroke:#33736f;stroke-width:18;stroke-linecap:round"/>
+  <circle cx="678" cy="797" r="36" style="fill:#33736f"/>
+</svg>

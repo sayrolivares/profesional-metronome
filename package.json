@@ -1,0 +1,12 @@
+{
+  "name": "metronome",
+  "version": "1.4.0",
+  "description": "A professional metronome for musicians \u2014 static web app, no build step required.",
+  "private": true,
+  "scripts": {
+    "test": "node tests/rhythm.test.js && node tests/engine.test.js && node tests/terms.test.js && node tests/themes.test.js && node tests/privacy.test.js",
+    "build": "node build.js",
+    "start": "npx serve ."
+  },
+  "license": "MIT"
+}
