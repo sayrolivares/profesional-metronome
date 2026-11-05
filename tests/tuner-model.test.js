@@ -1,6 +1,6 @@
 /* Run: node tests/tuner-model.test.js — what the tuner shows for a reading: targets,
-   cents, tolerance, auto and manual strings, custom frequency, reference pitch, string
-   progress and the session history. */
+   cents, tolerance and its hysteresis, settling and faded readings, auto and manual
+   strings, custom frequency, reference pitch, string progress and the session history. */
 require('../js/notes.js'); require('../js/tunings.js'); require('../js/tuner-store.js'); require('../js/tuner-model.js');
 const { notes: N, tunings: T, TunerModel, tunerSettings } = globalThis.MN;
 const assert = require('assert');
@@ -132,6 +132,51 @@ t('session history: in-tune notes, one entry per note, capped', () => {
   for (let k = 0; k < 20; k++) { for (let i = 0; i < 16; i++) m.update(read(N.midiToFreq(50 + k)), S(), chromatic, (now += 50)); now += 11000; }
   assert.equal(m.history.length, 12);
   assert.equal(m.history[0].label, N.label(69));
+});
+t('"In tune" holds while within tolerance, and does not flicker on the edge', () => {
+  const m = new TunerModel(), s = S({ tolerance: 2, targetMode: 'note' });
+  let now = 0;
+  const at = (c) => m.update(read(off(440, c)), s, chromatic, (now += 50));
+  assert.ok(at(1.5).inTune, 'enters inside the tolerance');
+  /* hovering just outside (2.2 ¢, within the 0.5 ¢ margin) for less than 150 ms: still in tune */
+  assert.ok(at(2.2).inTune && at(2.2).inTune, 'a 100 ms brush past the edge');
+  assert.ok(at(1.9).inTune);
+  /* staying just outside: out after 150 ms */
+  at(2.3); at(2.3); at(2.3);
+  const out = at(2.3);
+  assert.ok(!out.inTune); assert.equal(out.direction, 'down');
+  assert.ok(Math.abs(out.cents - 2.3) < 0.01, 'the cents shown are the measured ones');
+  /* well outside: out at once */
+  assert.ok(at(0).inTune);
+  assert.ok(!at(3).inTune, 'beyond tolerance + margin');
+  /* re-entering needs to be within the tolerance itself */
+  assert.ok(!at(2.2).inTune && at(2).inTune);
+});
+t('settling: within tolerance before the pluck has settled says "settle", not "in tune"', () => {
+  const m = new TunerModel(), s = S({ tolerance: 3 });
+  const r = m.update(Object.assign(read(110), { settled: false }), s, guitar, 0);
+  assert.ok(!r.inTune); assert.equal(r.direction, 'settle');
+  const far = m.update(Object.assign(read(off(110, -20)), { settled: false }), s, guitar, 50);
+  assert.equal(far.direction, 'up', 'an obvious direction is shown at once');
+  assert.ok(m.update(Object.assign(read(110), { settled: true }), s, guitar, 100).inTune);
+});
+t('a faded note ("Pluck again") keeps its reading, without direction, and never counts as tuned', () => {
+  const m = new TunerModel();
+  const r = m.update(read(off(110, -8), 'decay'), S(), guitar, 0);
+  assert.ok(r.hasPitch && r.faded); assert.equal(r.direction, null); assert.ok(!r.inTune);
+  assert.equal(r.note.text, 'A2');
+  let x; for (let now = 0; now <= 1500; now += 50) x = m.update(read(110, 'decay'), S(), guitar, now);
+  assert.ok(!x.tuned[1]);
+});
+t('a new target starts out of tune', () => {
+  const m = new TunerModel(), s = S({ tolerance: 3 });
+  assert.ok(m.update(read(110), s, guitar, 0).inTune);
+  const next = m.update(read(off(146.832, 2.9)), s, guitar, 50);
+  assert.equal(next.stringIndex, 2);
+  assert.ok(next.inTune, 'D3 within tolerance on its first reading (settled) is in tune');
+  const mm = new TunerModel();
+  mm.update(read(110), s, guitar, 0);
+  assert.ok(!mm.update(Object.assign(read(146.832), { settled: false }), s, guitar, 50).inTune, 'but not before it has settled');
 });
 
 console.log(`\n${n} tuner model tests passed`);

@@ -3,8 +3,12 @@
    and nothing here touches the page.
 
    Microphone graph:  mic → high-pass 22 Hz → analyser (→ silent gain → speakers)
-     • Echo cancellation, noise suppression and automatic gain are switched OFF: they are
-       built for voices and smear or cancel the steady tones a tuner needs.
+     • Echo cancellation, noise suppression and automatic gain are requested OFF: they are
+       built for voices. Noise suppression treats a sustained note as noise and fades it;
+       automatic gain lifts the room as a note decays. A browser may ignore the request,
+       so the track's actual settings are read back (getSettings), switching them off is
+       tried once more with applyConstraints, and what is still on is reported in
+       `processing` so the engine can adapt and the page can say so.
      • The analyser simply holds the most recent samples; the engine copies a window of
        them out ~20 times a second. Audio never leaves this graph: it is not recorded,
        stored or sent anywhere.
@@ -42,13 +46,37 @@
 
   const nextPow2 = (n) => 1 << Math.ceil(Math.log2(Math.max(2, n)));
 
+  const VOICE = ['echoCancellation', 'noiseSuppression', 'autoGainControl'];
+  /* What the browser actually applied. For each of the three voice features: true (on),
+     false (off) or null (the browser doesn't say). If any is still on, one more attempt is
+     made to switch it off. Returns { echoCancellation, noiseSuppression, autoGainControl,
+     sampleRate, channelCount, retried, on: [names still on], unsupported: [names the
+     browser can't control] }. */
+  async function checkProcessing(track, mediaDevices) {
+    const read = () => { try { return (track && track.getSettings && track.getSettings()) || {}; } catch (e) { return {}; } };
+    let st = read(), retried = false;
+    const on = () => VOICE.filter((k) => st[k] === true);
+    if (on().length && track && track.applyConstraints) {
+      retried = true;
+      try { await track.applyConstraints({ echoCancellation: false, noiseSuppression: false, autoGainControl: false }); } catch (e) { /* not allowed: keep what we have */ }
+      st = read();
+    }
+    const out = { retried, sampleRate: st.sampleRate || null, channelCount: st.channelCount || null };
+    for (const k of VOICE) out[k] = typeof st[k] === 'boolean' ? st[k] : null;
+    out.on = on();
+    let supported = {};
+    try { supported = (mediaDevices && mediaDevices.getSupportedConstraints && mediaDevices.getSupportedConstraints()) || {}; } catch (e) {}
+    out.unsupported = VOICE.filter((k) => supported[k] === false);
+    return out;
+  }
+
   class AudioInput {
     constructor(env = {}) {
       this.mediaDevices = env.mediaDevices !== undefined ? env.mediaDevices : (root.navigator && navigator.mediaDevices) || null;
       this.AC = env.AudioContext || root.AudioContext || root.webkitAudioContext || null;
       this.secure = env.secure !== undefined ? env.secure : root.isSecureContext !== false;
       this.ctx = null; this.stream = null; this.analyser = null; this.buffer = null; this.nodes = [];
-      this.deviceLabel = ''; this.deviceId = '';
+      this.deviceLabel = ''; this.deviceId = ''; this.processing = null;
     }
 
     get open() { return !!this.stream; }
@@ -75,6 +103,7 @@
            to its recording sample rate at that moment, and a context made earlier could
            report the wrong rate (every pitch would be off by ~1.5 semitones). */
         const track = stream.getAudioTracks()[0];
+        const processing = await checkProcessing(track, this.mediaDevices);
         const settings = track && track.getSettings ? track.getSettings() : {};
         let ctx = new this.AC({ latencyHint: 'interactive' });
         if (settings.sampleRate && ctx.sampleRate && Math.abs(settings.sampleRate - ctx.sampleRate) > 1) {
@@ -94,7 +123,8 @@
         this.deviceLabel = (track && track.label) || '';
         this.deviceId = settings.deviceId || deviceId || '';
         if (track) track.onended = () => { if (this.onended) this.onended(); };
-        return { sampleRate: ctx.sampleRate, label: this.deviceLabel, deviceId: this.deviceId, suspended: ctx.state === 'suspended' };
+        this.processing = processing;
+        return { sampleRate: ctx.sampleRate, label: this.deviceLabel, deviceId: this.deviceId, suspended: ctx.state === 'suspended', processing };
       } catch (err) {
         stream.getTracks().forEach((t) => t.stop());
         audioSession('auto');
@@ -121,7 +151,7 @@
 
     async close() {
       const { stream, ctx, nodes } = this;
-      this.stream = null; this.ctx = null; this.analyser = null; this.buffer = null; this.nodes = [];
+      this.stream = null; this.ctx = null; this.analyser = null; this.buffer = null; this.nodes = []; this.processing = null;
       if (stream) stream.getTracks().forEach((t) => { t.onended = null; try { t.stop(); } catch (e) {} });
       for (const node of nodes) { try { node.disconnect(); } catch (e) {} }
       if (ctx && ctx.state !== 'closed') { try { await ctx.close(); } catch (e) {} }
@@ -199,5 +229,5 @@
     async close() { this.stop(); const c = this.ctx; this.ctx = null; if (c && c.state !== 'closed') { try { await c.close(); } catch (e) {} } }
   }
 
-  MN.tunerAudio = { AudioInput, ReferenceTone, TunerError, micError };
+  MN.tunerAudio = { AudioInput, ReferenceTone, TunerError, micError, checkProcessing };
 })(typeof window !== 'undefined' ? window : globalThis);

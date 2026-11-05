@@ -1,8 +1,10 @@
 /* Run: node tests/tuner-engine.test.js — microphone handling and the analysis loop, against
    fake browser objects: permission granted, denied, no microphone, microphone busy, insecure
-   page, stop while starting, page hidden and shown, device unplugged, idle auto-stop, and
-   that the microphone is always released. */
-require('../js/notes.js'); require('../js/pitch.js'); require('../js/tuner-audio.js'); require('../js/tuner-engine.js');
+   page, stop while starting, page hidden and shown, leaving for the metronome, device
+   unplugged, idle auto-stop, the browser keeping voice processing on, and that the
+   microphone is always released. */
+require('../js/notes.js'); require('../js/pitch.js'); require('../js/pitch-confidence.js'); require('../js/pitch-stabilizer.js');
+require('../js/tuner-audio.js'); require('../js/tuner-engine.js');
 const { tunerAudio: A, TunerEngine, tunerEngine } = globalThis.MN;
 const Sig = require('./signals.js');
 const assert = require('assert');
@@ -30,14 +32,21 @@ function fakeAudio(signal) {
   }
   return { Ctx, made };
 }
-function fakeMedia({ fail = null, trackRate = 48000 } = {}) {
+function fakeMedia({ fail = null, trackRate = 48000, processing = null, sticky = false } = {}) {
   const tracks = [];
   return {
     tracks, calls: [],
     async getUserMedia(c) {
       this.calls.push(c);
       if (fail) { const e = new Error(fail); e.name = fail; throw e; }
-      const tr = { label: 'Built-in microphone', stopped: false, stop() { this.stopped = true; }, getSettings: () => ({ sampleRate: trackRate, deviceId: c.audio.deviceId ? c.audio.deviceId.exact : 'default' }) };
+      /* processing: what the browser applies regardless of the request (null: obeys it).
+         sticky: applyConstraints can't turn it off either. */
+      const applied = Object.assign({ echoCancellation: c.audio.echoCancellation, noiseSuppression: c.audio.noiseSuppression, autoGainControl: c.audio.autoGainControl }, processing || {});
+      const tr = {
+        label: 'Built-in microphone', stopped: false, stop() { this.stopped = true; }, constraintsApplied: [],
+        getSettings: () => Object.assign({ sampleRate: trackRate, deviceId: c.audio.deviceId ? c.audio.deviceId.exact : 'default' }, applied),
+        async applyConstraints(k) { this.constraintsApplied.push(k); if (!sticky) Object.assign(applied, k); },
+      };
       tracks.push(tr);
       return { getAudioTracks: () => [tr], getTracks: () => [tr] };
     },
@@ -55,8 +64,8 @@ function fakeClock() {
   };
 }
 function fakeDoc() { const ls = []; return { hidden: false, addEventListener: (type, f) => ls.push(f), fire() { ls.forEach((f) => f()); } }; }
-function rig({ fail, signal = () => Sig.saw(82.41, { n: 16384 }), secure = true, trackRate } = {}) {
-  const audio = fakeAudio(signal), media = fakeMedia({ fail, trackRate }), clock = fakeClock(), doc = fakeDoc();
+function rig({ fail, signal = () => Sig.saw(82.41, { n: 16384 }), secure = true, trackRate, processing, sticky } = {}) {
+  const audio = fakeAudio(signal), media = fakeMedia({ fail, trackRate, processing, sticky }), clock = fakeClock(), doc = fakeDoc();
   const input = new A.AudioInput({ mediaDevices: media, AudioContext: audio.Ctx, secure });
   const engine = new TunerEngine({ input, now: clock.now, setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout, document: doc });
   const states = [], readings = [];
@@ -153,15 +162,49 @@ t('stops by itself after five minutes without a note', async () => {
   assert.equal(r.states[r.states.length - 1].reason, 'idle');
   assert.ok(r.media.tracks[0].stopped);
 });
-t('analysis window: long for low notes, shorter for high ones', async () => {
+t('analysis window follows the instrument: ~170 ms if it goes below 160 Hz, half above', async () => {
   const r = rig({ signal: () => Sig.saw(659.25, { n: 16384 }) });
-  r.engine.setLowest(82);
+  r.engine.setLowest(82, 330);
   await r.engine.start();
-  assert.equal(r.engine.windowSize(), 8192);
+  assert.equal(r.engine.windowSize(), 8192, 'guitar: 14 cycles of a low E');
   await r.clock.advance(300);
-  assert.equal(r.engine.windowSize(), 4096, 'once a high note is tracked');
-  r.engine.setLowest(196); await r.engine.stop(); await r.engine.start();
-  assert.equal(r.engine.windowSize(), 4096, 'violin: shorter from the start');
+  assert.equal(r.engine.windowSize(), 8192, 'kept while a high string sounds (half the jitter on recordings)');
+  r.engine.setLowest(196, 659); await r.engine.stop(); await r.engine.start();
+  assert.equal(r.engine.windowSize(), 4096, 'violin: shorter, quicker');
+  assert.equal(r.engine.tracker.o.rangeLo, 196, 'the range goes to the stabiliser');
+});
+t('voice processing: the applied settings are read back and reported', async () => {
+  const ok = rig();
+  await ok.engine.start();
+  assert.deepEqual(ok.engine.processing.on, [], 'all three off');
+  assert.equal(ok.engine.processing.noiseSuppression, false);
+  assert.equal(ok.media.tracks[0].constraintsApplied.length, 0, 'no retry needed');
+
+  const fixed = rig({ processing: { noiseSuppression: true } });
+  await fixed.engine.start();
+  assert.equal(fixed.media.tracks[0].constraintsApplied.length, 1, 'a second attempt with applyConstraints');
+  assert.deepEqual(fixed.engine.processing.on, [], 'which worked');
+
+  const stuck = rig({ processing: { noiseSuppression: true, autoGainControl: true }, sticky: true });
+  await stuck.engine.start();
+  assert.equal(stuck.engine.state, 'listening', 'still works');
+  assert.deepEqual(stuck.engine.processing.on, ['noiseSuppression', 'autoGainControl']);
+  assert.equal(stuck.engine.tracker.o.decayDb, Infinity, 'automatic gain on: decay judged by confidence, not level');
+  assert.ok(Number.isFinite(ok.engine.tracker.o.decayDb));
+});
+t('leaving for the metronome stops listening, and coming back does not restart it', async () => {
+  const r = rig();
+  await r.engine.start();
+  await r.engine.stop('view');
+  assert.equal(r.engine.state, 'idle'); assert.ok(r.media.tracks[0].stopped);
+  r.doc.hidden = true; r.doc.fire(); r.doc.hidden = false; r.doc.fire(); await flush(); await flush();
+  assert.equal(r.engine.state, 'idle', 'a hidden/shown page does not bring it back either');
+  /* hidden while listening, then switched away before coming back: stays off */
+  await r.engine.start();
+  r.doc.hidden = true; r.doc.fire(); await flush();
+  await r.engine.stop('view');
+  r.doc.hidden = false; r.doc.fire(); await flush(); await flush();
+  assert.equal(r.engine.state, 'idle');
 });
 t('mismatched hardware sample rate (iOS) is corrected', async () => {
   const r = rig({ trackRate: 44100 });

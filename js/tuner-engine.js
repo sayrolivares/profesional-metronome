@@ -1,15 +1,20 @@
 /* tuner-engine.js — runs the tuner: opens the microphone, analyses it about 20 times a
-   second and emits readings. It owns the microphone's lifetime, so the rules about when the
-   mic is on live in one place:
+   second and emits readings. Pipeline per frame:
+     microphone (js/tuner-audio.js) → detection (js/pitch.js) → confidence and
+     stabilisation (js/pitch-confidence.js, js/pitch-stabilizer.js) → 'reading' event.
+   Note matching (js/tuner-model.js) and drawing (js/tuner-ui.js) happen in the page.
+
+   It owns the microphone's lifetime, so the rules about when the mic is on live in one place:
      • only between start() and stop();
-     • stopped when the page is hidden (and reopened when it comes back, if it was on);
+     • stopped when the page is hidden (and reopened when it comes back, if it was on and
+       the tuner is still the tool on screen);
      • stopped after five minutes without a note, to save battery;
      • stopped if the device disappears.
    The UI never computes pitch: it calls start/stop and listens for events.
 
    Events (on(fn) → fn(type, data)):
      'state'   { state: 'idle'|'starting'|'listening'|'suspended'|'error', reason, error }
-     'reading' the pitch tracker's output for one frame (see js/pitch.js) */
+     'reading' the stabiliser's output for one frame (see js/pitch-stabilizer.js) */
 (function (root) {
   const MN = (root.MN = root.MN || {});
 
@@ -20,7 +25,7 @@
     constructor(opts = {}) {
       this.input = opts.input || new MN.tunerAudio.AudioInput();
       this.detector = opts.detector || new MN.pitch.PitchDetector();
-      this.tracker = opts.tracker || new MN.pitch.PitchTracker();
+      this.tracker = opts.tracker || new MN.PitchStabilizer();
       this.now = opts.now || (() => performance.now());
       this.setTimer = opts.setTimeout || ((f, ms) => setTimeout(f, ms));
       this.clearTimer = opts.clearTimeout || ((id) => clearTimeout(id));
@@ -31,6 +36,7 @@
       this.timer = null;
       this.hintHz = 0;
       this.lowestHz = 82;
+      this.processing = null;
       this.deviceId = '';
       this.lastPitchAt = 0;
       this.resumeOnShow = false;
@@ -48,17 +54,23 @@
     get sampleRate() { return this.input.sampleRate; }
 
     setHint(hz) { this.hintHz = hz > 0 ? hz : 0; }
-    setLowest(hz) { this.lowestHz = hz > 0 ? hz : 82; }
+    /* lowest and highest string (or 0 for chromatic): the analysis window and the octave
+       preference follow the instrument */
+    setLowest(hz, highestHz = 0) {
+      this.lowestHz = hz > 0 ? hz : 82;
+      if (this.tracker.setRange) this.tracker.setRange(hz > 0 && highestHz > 0 ? hz : 0, highestHz > 0 ? highestHz * 4 : 0);
+    }
     setGate(db) { this.tracker.o.gateDb = db; }
 
-    /* Analysis window: ~170 ms for low notes (B0's period is 32 ms; several periods are
-       needed), half that once the note is high enough, for a quicker response. */
+    /* Analysis window: ~170 ms (8192 samples at 48 kHz) whenever the instrument goes below
+       160 Hz: 14 cycles of a low E, 5 of a bass's low B. Measured on recordings, the long
+       window also halves the jitter on higher notes, so it is kept for the whole
+       instrument rather than shortened once a high string sounds. Instruments that stay
+       above 160 Hz (violin, ukulele, mandolin) use half, for a quicker response. */
     windowSize() {
       const sr = this.sampleRate || 48000;
       const long = 1 << Math.ceil(Math.log2(sr * 0.15));
-      const cur = this.tracker.cents !== null ? 440 * Math.pow(2, this.tracker.cents / 1200) : 0;
-      const high = cur ? cur > 160 : this.lowestHz > 160;
-      return high ? long >> 1 : long;
+      return this.lowestHz > 160 ? long >> 1 : long;
     }
 
     async start(deviceId) {
@@ -72,6 +84,10 @@
         const info = await this.input.start(this.deviceId);
         if (gen !== this.gen) { await this.input.close(); return; }   // stop() was pressed meanwhile
         this.deviceId = info.deviceId || this.deviceId;
+        this.processing = info.processing || null;
+        /* if the browser kept automatic gain on, the level no longer falls as a note decays:
+           judge the decay by confidence alone */
+        if (this.tracker.o) this.tracker.o.decayDb = this.processing && this.processing.autoGainControl ? Infinity : MN.pitchStabilizer.DEFAULTS.decayDb;
         this.tracker.reset();
         this.lastPitchAt = this.now();
         this.setState(info.suspended ? 'suspended' : 'listening', { info });
@@ -91,6 +107,7 @@
 
     async stop(reason = 'user') {
       this.gen++;
+      if (reason !== 'hidden') this.resumeOnShow = false;
       this.clearTimer(this.timer); this.timer = null;
       const was = this.state;
       await this.input.close();

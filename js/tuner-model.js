@@ -2,6 +2,14 @@
    note, the target, cents, in-tune state, which string is sounding and which strings are
    done. No DOM and no audio, so every rule here is unit-tested.
 
+   "In tune" has hysteresis: it starts when the pitch is within the tolerance (and the
+   pluck has settled), and holds while the pitch stays within it. It ends at once beyond
+   tolerance + a small margin, or after 150 ms just outside, so a reading hovering on the
+   edge doesn't flicker. The cents shown are always the measured ones.
+
+   A faded note ('decay' from the stabiliser) keeps its last reading on screen, marked
+   faded, with no direction: the page says "Pluck again".
+
    Targets, in order of precedence:
      1. A frequency typed in Advanced ("Tune to a frequency").
      2. Manual string mode: the string you picked.
@@ -17,10 +25,12 @@
   const AUTO_MARGIN = 150;        // ¢ — the best string must win by at least this much
   const AUTO_SWITCH = 60;         // ¢ — another string must be this much closer to take over
   const TUNED_MS = 600;           // in tune this long → the string is marked done
+  const EXIT_MS = 150;            // just outside the tolerance this long → no longer in tune
+  const exitMargin = (tol) => Math.max(0.3, tol * 0.25);   // ¢ beyond tolerance: out at once
   const HISTORY_SIZE = 12;
 
   class TunerModel {
-    constructor() { this.history = []; this.resetStrings(); this.prevMidi = null; this.autoString = -1; }
+    constructor() { this.history = []; this.resetStrings(); this.prevMidi = null; this.autoString = -1; this.inTuneOn = false; this.outsideSince = null; }
 
     resetStrings(count = 0) { this.tuned = new Array(count).fill(false); this.inTuneSince = null; this.inTuneKey = null; }
 
@@ -50,10 +60,13 @@
         cents: null, deltaHz: null, inTune: false, direction: null, stringIndex: -1,
         autoString: false, clarity: reading ? reading.clarity : 0, db: reading ? reading.db : -120,
         gateDb: reading ? reading.gateDb : null, tolerance: s.tolerance, tuned: this.tuned.slice(), justTuned: null,
+        confidence: reading && reading.confidence != null ? reading.confidence : reading ? reading.clarity : 0,
+        quality: reading && reading.quality ? reading.quality : 'none', faded: false, settled: false,
       };
       if (this.tuned.length !== tuning.strings.length) this.resetStrings(tuning.strings.length), (out.tuned = this.tuned.slice());
 
-      const freq = listening && reading && reading.freq > 0 && (reading.status === 'pitch' || reading.status === 'hold') ? reading.freq : null;
+      const shown = reading && (reading.status === 'pitch' || reading.status === 'decay' || reading.status === 'hold');
+      const freq = listening && shown && reading.freq > 0 ? reading.freq : null;
 
       /* the target is known even before a note is played, so the UI can show it */
       if (s.targetMode === 'freq') out.target = { kind: 'freq', freq: s.customHz, label: N.hz(s.customHz) + ' Hz', midi: null, stringIndex: -1 };
@@ -63,10 +76,12 @@
         out.stringIndex = i;
       }
 
-      if (!freq) { this.prevMidi = null; this.autoString = -1; this.inTuneSince = null; return out; }
+      if (!freq) { this.prevMidi = null; this.autoString = -1; this.inTuneSince = null; this.inTuneOn = false; this.outsideSince = null; return out; }
 
       out.hasPitch = true;
       out.freq = freq;
+      out.faded = reading.status !== 'pitch';
+      out.settled = reading.settled !== undefined ? !!reading.settled : !!reading.stable;
 
       /* nearest note, with hysteresis so the name doesn't flicker at the half-way point */
       let near = N.nearest(freq, s.a4, s.temperament);
@@ -88,12 +103,15 @@
 
       out.cents = N.cents(freq, out.target.freq);
       out.deltaHz = freq - out.target.freq;
-      out.inTune = Math.abs(out.cents) <= s.tolerance + 1e-9;   // inclusive, immune to float noise at the boundary
-      out.direction = out.inTune ? 'ok' : out.cents < 0 ? 'up' : 'down';
+      const key = out.target.kind + ':' + (out.target.stringIndex >= 0 ? out.target.stringIndex : out.target.midi != null ? out.target.midi : out.target.freq);
+      if (key !== this.stateKey) { this.stateKey = key; this.inTuneOn = false; this.outsideSince = null; }   // a new target starts out of tune
+      out.inTune = this.inTuneState(Math.abs(out.cents), s.tolerance, out, now);
+      out.direction = out.faded ? null : out.inTune ? 'ok'
+        : Math.abs(out.cents) <= s.tolerance + 1e-9 ? 'settle'        // within tolerance, the pluck still settling
+        : out.cents < 0 ? 'up' : 'down';
 
       /* a target held in tune long enough is "done" (strings get a mark; notes go to history) */
-      const key = out.target.kind + ':' + (out.target.stringIndex >= 0 ? out.target.stringIndex : out.target.midi != null ? out.target.midi : out.target.freq);
-      if (out.inTune && reading.status === 'pitch' && reading.stable) {
+      if (out.inTune && reading.status === 'pitch' && reading.stable && out.settled) {
         if (this.inTuneKey !== key) { this.inTuneKey = key; this.inTuneSince = now; }
         else if (now - this.inTuneSince >= TUNED_MS) {
           const i = out.target.stringIndex;
@@ -103,6 +121,21 @@
       } else if (!out.inTune) { this.inTuneKey = null; this.inTuneSince = null; }
       out.tuned = this.tuned.slice();
       return out;
+    }
+
+    /* in-tune with hysteresis (see the header). abs: |cents|. */
+    inTuneState(abs, tol, out, now) {
+      if (out.faded) { this.outsideSince = null; return false; }
+      const within = abs <= tol + 1e-9;            // inclusive, immune to float noise at the boundary
+      if (!this.inTuneOn) {
+        if (within && out.settled) { this.inTuneOn = true; this.outsideSince = null; }
+      } else if (within) this.outsideSince = null;
+      else if (abs > tol + exitMargin(tol)) { this.inTuneOn = false; this.outsideSince = null; }
+      else {
+        if (this.outsideSince === null) this.outsideSince = now;
+        if (now - this.outsideSince >= EXIT_MS) { this.inTuneOn = false; this.outsideSince = null; }
+      }
+      return this.inTuneOn;
     }
 
     stringTarget(tuning, i, s) {
@@ -123,5 +156,5 @@
   }
 
   MN.TunerModel = TunerModel;
-  MN.tunerModel = { NOTE_HYSTERESIS, AUTO_MAX, AUTO_MARGIN, AUTO_SWITCH, TUNED_MS, HISTORY_SIZE };
+  MN.tunerModel = { NOTE_HYSTERESIS, AUTO_MAX, AUTO_MARGIN, AUTO_SWITCH, TUNED_MS, HISTORY_SIZE, EXIT_MS, exitMargin };
 })(typeof window !== 'undefined' ? window : globalThis);

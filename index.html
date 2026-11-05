@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Tuner – Tuner &amp; Metronome</title>
+<title>Metronome &amp; Tuner</title>
 <meta name="description" content="A precise chromatic tuner and a practice metronome for musicians. Guitar, bass, violin, viola, cello, double bass, ukulele and mandolin. Runs in your browser; sound never leaves your device.">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; media-src 'self'; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'" data-standalone-only>
 <meta name="theme-color" content="#220d0d" media="(prefers-color-scheme: dark)">
@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Tuner">
+<meta name="apple-mobile-web-app-title" content="Metronome &amp; Tuner">
 <meta name="format-detection" content="telephone=no">
 <link rel="manifest" href="manifest.webmanifest" data-standalone-only>
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml" data-standalone-only>
@@ -47,7 +47,7 @@
           <span>Tuner</span></a>
         <a href="#metronome" class="view-btn" data-view-btn="metronome" data-help="Metronome::Keep time with clicks, subdivisions and practice tools.">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3h4l4.5 17h-13z"/><path d="M12 15l5-8"/><path d="M7 17h10"/></svg>
-          <span>Metronome</span><i class="live-dot" aria-hidden="true"></i></a>
+          <span>Metronome</span></a>
       </nav>
     </div>
     <div class="top-actions">
@@ -102,7 +102,10 @@
             <svg class="ico-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>
             <svg class="ico-stop" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1.5"/></svg>
           </button>
-          <div class="level" id="level" data-help="Input level::How loud the microphone hears your instrument. The mark is the threshold: below it, the tuner waits for a stronger note."><i class="lv-fill" id="levelFill"></i><i class="lv-gate" id="levelGate"></i></div>
+          <div class="meter-row">
+            <div class="level" id="level" data-help="Input level::How loud the microphone hears your instrument. The mark is the threshold: below it, the tuner waits for a stronger note."><i class="lv-fill" id="levelFill"></i><i class="lv-gate" id="levelGate"></i></div>
+            <span class="sigq" id="sigQuality" data-q="none" role="img" aria-label="Signal quality: none" data-help="Signal quality::How sure the tuner is of the reading: one bar is weak, three is clear. It combines how cleanly the note repeats, how far it stands above the room’s noise and whether the last few readings agree. Fewer bars: play closer to the microphone, or pluck again."><i></i><i></i><i></i></span>
+          </div>
           <p class="listen-note" id="listenNote">Press start and allow the microphone. Sound is analysed on this device and never recorded.</p>
           <button class="btn small hidden" id="resumeBtn">Continue</button>
         </div>
@@ -118,6 +121,7 @@
         <div class="field">
           <label for="micSelect">Microphone</label>
           <p class="mic-status" id="micStatus" data-help="Microphone permission::Whether this site may use the microphone. Your browser asks the first time you press Start; you can change it later in the browser’s site settings.">Asks when you press Start</p>
+          <p class="mic-proc advanced-only" id="micProc" hidden data-help="Sound processing::Phones and browsers can clean up a voice with echo cancellation, noise suppression and automatic gain. A tuner needs the raw sound, so the app asks for all three off and checks what the browser actually did."></p>
           <select id="micSelect" class="hidden" aria-label="Microphone" data-help="Input device::Choose which microphone the tuner listens to. A clip-on or USB microphone hears your instrument more clearly than a laptop’s built-in one."></select>
         </div>
         <div class="field advanced-only">
@@ -550,7 +554,7 @@
 <div class="dlg" id="about-dlg" role="dialog" aria-modal="true" aria-labelledby="about-title" hidden>
   <div class="dlg-box" tabindex="-1"><span class="dlg-grip"></span><button class="dlg-x" data-close aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     <svg class="logo about-logo" aria-hidden="true" focusable="false"><use href="#logo-mark" width="100%" height="100%"/></svg>
-    <h2 id="about-title" class="app-name">Tuner &amp; Metronome</h2>
+    <h2 id="about-title" class="app-name">Metronome &amp; Tuner</h2>
     <div class="version">Version <b id="appVersion">1.4.0</b><span id="appReleased">November 2026</span></div>
     <p class="motto-line">Made for musicians, by a musician</p>
     <p>A chromatic tuner and a practice metronome, built to be used every day. Free, not for profit, with no accounts, ads or tracking.</p>
@@ -627,6 +631,8 @@
 <script src="js/ui.js"></script>
 <script src="js/notes.js"></script>
 <script src="js/pitch.js"></script>
+<script src="js/pitch-confidence.js"></script>
+<script src="js/pitch-stabilizer.js"></script>
 <script src="js/tunings.js"></script>
 <script src="js/tuner-store.js"></script>
 <script src="js/tuner-audio.js"></script>

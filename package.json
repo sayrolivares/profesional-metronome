@@ -1,10 +1,11 @@
 {
-  "name": "tuner-metronome",
-  "version": "2.0.0",
-  "description": "A chromatic tuner and a professional metronome for musicians \u2014 static web app, no build step required.",
+  "name": "metronome-and-tuner",
+  "version": "2.1.0",
+  "description": "A practice metronome and a chromatic tuner for musicians — static web app, no build step required.",
   "private": true,
   "scripts": {
-    "test": "node tests/rhythm.test.js && node tests/engine.test.js && node tests/terms.test.js && node tests/themes.test.js && node tests/privacy.test.js && node tests/notes.test.js && node tests/pitch.test.js && node tests/tunings.test.js && node tests/tuner-model.test.js && node tests/tuner-engine.test.js",
+    "test": "node tests/rhythm.test.js && node tests/engine.test.js && node tests/terms.test.js && node tests/themes.test.js && node tests/privacy.test.js && node tests/notes.test.js && node tests/pitch.test.js && node tests/pitch-stabilizer.test.js && node tests/tunings.test.js && node tests/tuner-model.test.js && node tests/tuner-engine.test.js && node tests/tuning-scenarios.test.js",
+    "test:recordings": "node tests/fetch-recordings.js && node tests/recordings.test.js",
     "test:browser": "node tests/browser.test.js",
     "build": "node build.js",
     "start": "npx serve ."

@@ -1,5 +1,28 @@
 # Changelog
 
+## 2.1.0
+
+The app is now called **Metronome & Tuner** (same logo), and the tuner's audio processing has been rebuilt for phones, low strings and noisy rooms.
+
+### Tuner
+- **Low strings through phone microphones.** The detector removes the room's noise floor from the spectrum before looking for the period, and checks the harmonics: a low E whose fundamental the microphone has cut is no longer read an octave up, and low rumble no longer pulls a reading down.
+- **Confidence instead of a single threshold.** Each reading is scored from how cleanly it repeats, how far it stands above the room, how harmonic it is and whether consecutive readings agree. A low E in a noisy room, which 2.0 often left at "Listening…", is now read.
+- **Steadier and more honest display.** Each pluck is detected: its attack is skipped, the reading appears at once, and "In tune" waits until the attack has settled ("Settling…"). Smoothing follows real changes, such as a turned peg, within a few cents, and stays still on jitter.
+- **"In tune" holds** while you stay within the tolerance, without flickering at the edge.
+- **"Pluck again"** when a note has decayed into the room, keeping the last good reading dimmed, instead of a reading that wanders.
+- **Signal quality** shown as three small bars next to the level meter.
+- **Microphone settings checked.** Echo cancellation, noise suppression and automatic gain are still requested off; the app now reads back what the browser actually applied, tries again if needed, adapts, and says so under Advanced › Microphone.
+- The analysis window is chosen by the instrument (about 170 ms when it goes below 160 Hz) instead of changing mid-note.
+- Measured on 162 recordings of real instruments through five simulated microphones: wrong-note frames fell from 2.2 % to 0.2 % (studio) and from 1.3 % to 0.3 % (phone); in a noisy room, right-note frames rose from 83 % to 95 % and notes never found fell from 20 to 0. YIN was evaluated on the same recordings and measured worse; details in `docs/TUNER.md`.
+
+### Both tools
+- **Switching stops the tool you leave.** Going to the tuner stops the metronome completely (as its Stop button does), and going to the metronome turns the microphone off. Neither restarts by itself when you come back. The dot that showed the metronome still playing is gone, since it no longer can.
+- Renamed to **Metronome & Tuner** in the title, About, the home-screen name, the privacy page and the docs.
+
+### Tests and docs
+- New suites: the stabiliser and confidence rules; the whole chain on the six guitar strings (E2 82.4069, A2 110, D3 146.832, G3 195.998, B3 246.942, E4 329.628 Hz) synthesised as real, slightly inharmonic strings, clean, through a phone microphone, soft and hard, attack and decay, in noise, with octave traps and ±4/10/30 ¢ offsets at every tolerance; 165 real recordings (`npm run test:recordings`); browser tests for a low E through a phone microphone, "Pluck again" and tool switching.
+- `docs/TUNER-TESTING.md`: a repeatable manual test on real instruments, phones and desktops.
+
 ## 2.0.0
 
 The app is now a tuner and a metronome, and it opens on the tuner.

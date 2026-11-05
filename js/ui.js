@@ -91,6 +91,11 @@
     window.addEventListener('mn:view', (e) => {
       if (e.detail.view === 'metronome' && gateMode === 'first' && !seen() && !engine.ctx) gate.classList.remove('hidden');
       else if (e.detail.view !== 'metronome' && gateMode === 'first') gate.classList.add('hidden');
+      /* Leaving the metronome stops it completely, as the Stop button does: the click goes
+         silent, the bar, count-in, trainer and practice position are reset (a run of 10 s
+         or more goes to the practice log as usual). Coming back finds it stopped; nothing
+         restarts on its own. */
+      if (e.detail.view !== 'metronome' && (engine.running || engine.practiceElapsed() > 0)) stopAll();
     });
     const showGate = (mode) => {
       gateMode = mode;

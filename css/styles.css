@@ -530,8 +530,6 @@ body.dlg-open { overflow: hidden; }
 .view-btn[aria-current="page"] { color: var(--text); background: var(--surface); box-shadow: 0 1px 0 var(--line-strong); }
 .view-btn[aria-current="page"] svg { color: var(--accent); }
 .view-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.live-dot { display: none; position: absolute; top: 6px; right: 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
-.mn-playing .live-dot { display: block; }
 
 /* phones and small tablets: the switch becomes a bottom bar, within reach of the thumb */
 @media (max-width: 700px) {
@@ -545,7 +543,6 @@ body.dlg-open { overflow: hidden; }
   .view-btn { flex-direction: column; justify-content: center; gap: 3px; padding: 7px 6px 6px; font-size: 12px; border-radius: 12px; }
   .view-btn svg { width: 22px; height: 22px; }
   .view-btn[aria-current="page"] { background: var(--surface-2); box-shadow: none; color: var(--text); }
-  .live-dot { top: 7px; right: calc(50% - 20px); }
   .app { padding-bottom: calc(var(--bar-h) + 40px); }
   .toast { bottom: calc(var(--bar-h) + 16px); }
   .dlg { z-index: 36; }
@@ -675,6 +672,17 @@ body.dlg-open { overflow: hidden; }
 .lv-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 2px; background: var(--faint); transition: width .06s linear; }
 .level.heard .lv-fill { background: var(--accent); }
 .lv-gate { position: absolute; top: -3px; width: 1px; height: 9px; background: var(--muted); left: 30%; }
+/* level meter and signal quality (three small bars) */
+.meter-row { display: flex; align-items: center; gap: 10px; }
+.sigq { display: inline-flex; align-items: flex-end; gap: 2px; height: 10px; opacity: 0; transition: opacity .3s; }
+.level.on + .sigq { opacity: 1; }
+.sigq i { width: 3px; border-radius: 1px; background: var(--line); transition: background-color .2s; }
+.sigq i:nth-child(1) { height: 4px; } .sigq i:nth-child(2) { height: 7px; } .sigq i:nth-child(3) { height: 10px; }
+.sigq[data-q="weak"] i:nth-child(1) { background: var(--muted); }
+.sigq[data-q="fair"] i:nth-child(-n+2) { background: var(--accent); }
+.sigq[data-q="good"] i { background: var(--ok); }
+.mic-proc { margin: 4px 0 0; font-size: 12.5px; line-height: 1.45; color: var(--muted); }
+.mic-proc.warn { color: var(--text); }
 .listen-note { margin: 0; max-width: 40ch; text-align: center; color: var(--muted); font-size: 13.5px; line-height: 1.5; min-height: 2.9em; }
 .tuner-alert { width: min(440px, 100%); padding: 14px 16px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--danger) 50%, transparent); background: color-mix(in srgb, var(--danger) 8%, var(--surface)); text-align: left; }
 .tuner-alert p { margin: 0 0 6px; font-size: 14px; line-height: 1.5; }

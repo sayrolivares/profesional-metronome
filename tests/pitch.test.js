@@ -1,9 +1,13 @@
-/* Run: node tests/pitch.test.js — the pitch detector and tracker against synthetic signals:
-   pure tones, string-like timbres, missing and weak fundamentals, plucked strings, noise,
-   silence, weak signals, vibrato, drift, other sample rates, and a sweep over every note
-   from B0 to C8 that fails on any octave error. */
+/* Run: node tests/pitch.test.js — the pitch DETECTOR (js/pitch.js), one frame at a time,
+   against synthetic signals: pure tones, string-like timbres, missing and weak
+   fundamentals, plucked strings, noise, silence, weak signals, vibrato, drift, other sample
+   rates, a sweep over every note from B0 to C8 that fails on any octave error, the six
+   guitar strings as realistic inharmonic plucks, a phone microphone's low cut, and the
+   noise-floor removal and harmonic checks. The stabiliser has its own tests
+   (tests/pitch-stabilizer.test.js); whole tuning scenarios are in
+   tests/tuning-scenarios.test.js; real recordings in tests/recordings.test.js. */
 require('../js/notes.js'); require('../js/pitch.js');
-const { PitchDetector, PitchTracker } = globalThis.MN.pitch;
+const { PitchDetector } = globalThis.MN.pitch;
 const S = require('./signals.js');
 const assert = require('assert');
 let n = 0; const t = (name, fn) => { fn(); n++; console.log('ok —', name); };
@@ -95,86 +99,68 @@ t('detection cost stays small (8192 samples)', () => {
   assert.ok(ms < 15, 'too slow: ' + ms);
 });
 
-/* ---------------- tracker ---------------- */
-const frame = (f, clarity = 0.98, rms = 0.1, extra = {}) => Object.assign({ freq: f, clarity, rms, candidates: [] }, extra);
-const silence = () => ({ freq: null, clarity: 0, rms: 1e-5, candidates: [] });
+/* ---------------- the six guitar strings, realistic plucks ---------------- */
+const SIX = [['E2', 82.4069], ['A2', 110], ['D3', 146.832], ['G3', 195.998], ['B3', 246.942], ['E4', 329.628]];
+const frames = (sig, size = LONG, from = 0.3, to = 2.5, hop = 2400) => { const out = []; for (let end = Math.round(from * SR); end <= Math.min(sig.length, to * SR); end += hop) out.push(sig.subarray(end - size, end)); return out; };
 
-t('tracker: a steady note gives a steady reading', () => {
-  const tr = new PitchTracker();
-  let out, now = 0;
-  const r = S.rng(11);
-  const seen = [];
-  for (let i = 0; i < 60; i++) { out = tr.push(frame(110 * Math.pow(2, ((r() - 0.5) * 6) / 1200)), (now += 50)); if (i > 10) seen.push(S.centsOff(out.freq, 110)); }
-  assert.equal(out.status, 'pitch'); assert.ok(out.stable);
-  const spread = Math.max(...seen) - Math.min(...seen);
-  assert.ok(spread < 2.5, '±3 ¢ jitter should be smoothed, spread was ' + spread.toFixed(2));
+t('six strings, clean inharmonic plucks: every sustain frame within 1 ¢', () => {
+  for (const [name, f] of SIX) {
+    const sig = S.string(f, { seconds: 2.6, glide: 0 });
+    for (const buf of frames(sig)) within(D.detect(buf, SR).freq, f, 1, name);
+  }
 });
-t('tracker: quiet input is gated, then the note fades into a short hold', () => {
-  const tr = new PitchTracker();
-  assert.equal(tr.push(frame(110, 0.99, 1e-4), 0).status, 'quiet', '−80 dBFS is below the gate');
-  for (let i = 1; i < 6; i++) tr.push(frame(110), i * 50);
-  const held = tr.push(silence(), 400);
-  assert.equal(held.status, 'hold'); within(held.freq, 110, 1);
-  assert.equal(tr.push(silence(), 400 + 2000).status, 'quiet', 'hold expires');
+t('six strings through a phone microphone (low cut at 200 Hz, 24 dB/octave): no octave errors', () => {
+  for (const [name, f] of SIX) {
+    /* a perfectly harmonic string: exact even with its fundamental cut */
+    for (const buf of frames(S.highpass(S.string(f, { seconds: 2.6, glide: 0, B: 0 }), 200, { order: 4 }))) within(D.detect(buf, SR).freq, f, 0.5, name + ' (phone, harmonic)');
+    /* a real, slightly inharmonic string: with the fundamental cut, the pitch is carried by
+       upper partials, which are a little sharp (B = 1e-4: the 6th is 3 ¢ high). Every
+       tuner that hears through such a microphone sees this; here it stays under 4 ¢. */
+    for (const buf of frames(S.highpass(S.string(f, { seconds: 2.6, glide: 0 }), 200, { order: 4 }))) within(D.detect(buf, SR).freq, f, 4, name + ' (phone)');
+  }
 });
-t('tracker: low-confidence frames are not shown', () => {
-  const tr = new PitchTracker();
-  for (let i = 0; i < 5; i++) assert.notEqual(tr.push(frame(110, 0.7), i * 50).status, 'pitch');
+t('octave-down check: a low E whose odd partials are weak is still E2, not E3', () => {
+  /* fundamental almost gone, 2nd harmonic dominant, odd partials about 4 % of the energy:
+     the plain MPM rule (first peak within 90 % of the highest) reads E3 here */
+  const sig = S.harmonics(82.4069, [0.03, 1, 0.22, 0.5, 0.1, 0.3]);
+  within(D.detect(sig, SR).freq, 82.4069, 0.5, 'with the check');
+  within(new PitchDetector({ downRatio: 0 }).detect(sig, SR).freq, 164.81, 0.5, 'without it, an octave up (documents why it exists)');
+  /* …and a real E3 is never pulled down to E2 */
+  for (const seed of [1, 2, 3]) within(D.detect(S.addNoise(S.harmonics(164.81, [1, 0.5, 0.3, 0.2, 0.1]), 15, seed), SR).freq, 164.81, 6, 'E3 in noise (an octave would be 1200 ¢)');
 });
-t('tracker: loud but unpitched sound becomes "noisy"', () => {
-  const tr = new PitchTracker();
-  let s;
-  for (let i = 0; i < 25; i++) s = tr.push(frame(200, 0.2, 0.2), i * 50).status;
-  assert.equal(s, 'noisy');
+t('noise-floor removal: in room noise the period is still right even when clarity is low', () => {
+  /* 6 dB above a room noise that shares the band: clarity falls (it should: confidence is
+     the stabiliser's job), the period does not */
+  let right = 0, total = 0, clar = 0;
+  for (const [name, f] of SIX) {
+    const clean = S.highpass(S.string(f, { seconds: 2.6, amp: 0.2 }), 150, { order: 4 });
+    const noisy = S.mix(clean, S.roomNoise(clean.length, S.dbfs(clean.subarray(0.3 * SR, 1.2 * SR)) - 6, 7));
+    for (const buf of frames(noisy, LONG, 0.3, 1.2)) { const r = D.detect(buf, SR); total++; clar += r.clarity; if (r.freq && Math.abs(S.centsOff(r.freq, f)) < 20) right++; }
+  }
+  assert.ok(right / total > 0.9, `period right in ${(100 * right / total).toFixed(0)} % of frames`);
+  assert.ok(clar / total < 0.85, 'clarity reflects the noise, mean ' + (clar / total).toFixed(2));
+  const off = new PitchDetector({ denoise: false });
+  let rightOff = 0;
+  for (const [name, f] of SIX) {
+    const clean = S.highpass(S.string(f, { seconds: 2.6, amp: 0.2 }), 150, { order: 4 });
+    const noisy = S.mix(clean, S.roomNoise(clean.length, S.dbfs(clean.subarray(0.3 * SR, 1.2 * SR)) - 6, 7));
+    for (const buf of frames(noisy, LONG, 0.3, 1.2)) { const r = off.detect(buf, SR); if (r.freq && Math.abs(S.centsOff(r.freq, f)) < 20) rightOff++; }
+  }
+  assert.ok(right >= rightOff, `removal never worse (${right} vs ${rightOff} frames)`);
 });
-t('tracker: a stray frame does not move the note; a real change needs confirmation', () => {
-  const tr = new PitchTracker();
-  let now = 0;
-  for (let i = 0; i < 6; i++) tr.push(frame(110), (now += 50));
-  within(tr.push(frame(146.83), (now += 50)).freq, 110, 1, 'one stray frame');
-  within(tr.push(frame(110), (now += 50)).freq, 110, 1);
-  tr.push(frame(146.83), (now += 50));
-  const moved = tr.push(frame(146.83), (now += 50));
-  within(moved.freq, 146.83, 1, 'after two agreeing frames');
+t('output fields: clarity, cleaned clarity, signal-to-noise, harmonicity, candidate support', () => {
+  const r = D.detect(S.saw(110), SR);
+  assert.ok(r.clarity > 0.95 && r.clean > 0.95);
+  assert.ok(r.harmonicity > 0.9, 'a harmonic note: ' + r.harmonicity.toFixed(2));
+  assert.ok(r.snrDb > 10);
+  const below = r.candidates.find((c) => Math.abs(S.centsOff(c.freq, 55)) < 10);
+  assert.ok(below && below.support !== null && below.support < 0.005, 'the octave below has no partials of its own');
+  const n = D.detect(S.noise(LONG, 0.3, 9), SR);
+  assert.ok(!(n.harmonicity > 0.6) || n.clarity < 0.5, 'noise is neither clear nor harmonic');
 });
-t('tracker: octave continuity prefers the period that continues the note', () => {
-  const tr = new PitchTracker();
-  let now = 0;
-  for (let i = 0; i < 6; i++) tr.push(frame(82.41), (now += 50));
-  const out = tr.push(frame(164.82, 0.97, 0.1, { candidates: [{ freq: 82.41, clarity: 0.95 }] }), (now += 50));
-  within(out.freq, 82.41, 1);
-});
-t('tracker: the string being tuned resolves an octave ambiguity at the start', () => {
-  const tr = new PitchTracker();
-  const out = tr.push(frame(82.41, 0.97, 0.1, { candidates: [{ freq: 41.2, clarity: 0.95 }] }), 0, 41.2);
-  within(out.freq, 41.2, 1);
-  const tr2 = new PitchTracker();
-  within(tr2.push(frame(82.41, 0.97, 0.1, { candidates: [{ freq: 41.2, clarity: 0.95 }] }), 0, 0).freq, 82.41, 1, 'no hint: keep the clearest');
-});
-t('tracker: the attack of a new pluck is skipped', () => {
-  const tr = new PitchTracker();
-  tr.push(frame(110, 0.99, 0.001), 0);                 // quiet ring
-  const hit = tr.push(frame(118, 0.95, 0.3), 50);      // +50 dB jump: attack frame, slightly sharp
-  assert.notEqual(hit.status, 'pitch');
-  within(tr.push(frame(110, 0.98, 0.25), 100).freq, 110, 1);
-});
-t('tracker: the noise floor follows a noisy room and raises the gate', () => {
-  const tr = new PitchTracker();
-  const fan = () => ({ freq: 300, clarity: 0.3, rms: 0.01, candidates: [] });   // −40 dBFS, unpitched
-  let out;
-  for (let i = 0; i < 400; i++) out = tr.push(fan(), i * 50);
-  assert.ok(out.gateDb > -40, 'gate should rise above the fan, is ' + out.gateDb.toFixed(1));
-  assert.equal(out.status, 'quiet');
-  tr.push(frame(110, 0.98, 0.1), 400 * 50);           // its attack frame is skipped
-  assert.equal(tr.push(frame(110, 0.98, 0.1), 401 * 50).status, 'pitch', 'a real note is still heard');
-});
-t('end to end: detector + tracker on a decaying pluck', () => {
-  const tr = new PitchTracker();
-  const p = S.pluck(82.41, { n: 48000, damping: 0.998 });
-  let last, now = 0;
-  for (let start = 0; start + LONG <= p.length; start += 2400) last = tr.push(D.detect(p.subarray(start, start + LONG), SR), (now += 50));
-  assert.ok(['pitch', 'hold'].includes(last.status));
-  within(last.freq, p.freq, 0.5);
+t('YIN (benchmark path) runs on the same difference function', () => {
+  const y = new PitchDetector({ method: 'yin', denoise: false });
+  within(y.detect(S.saw(196), SR).freq, 196, 1, 'YIN');
 });
 
-console.log(`\n${n} pitch tests passed`);
+console.log(`\n${n} pitch detector tests passed`);

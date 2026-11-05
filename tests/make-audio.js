@@ -33,6 +33,11 @@ const files = {
   'a4-442.wav': join(silence(0.3), note(442, 30, { every: 3 })),                     // A4 at 442 Hz
   'b0-bass.wav': join(silence(0.3), note(cents(30.868, 8), 30, { every: 3 })),       // 5-string low B, 8 ¢ sharp
   'silence.wav': silence(10),
+  /* a real-sounding low E through a phone microphone: inharmonic string, its fundamental
+     cut ~25 dB by a 200 Hz low cut, in a room at −60 dBFS; re-plucked every 3 s */
+  'e2-phone.wav': (() => { const parts = [silence(0.3)]; for (let k = 0; k < 10; k++) parts.push(S.highpass(S.string(82.4069, { seconds: 3, amp: 0.35, seed: 11 + k }), 200, { order: 4 })); const x = join(...parts); return S.mix(x, S.roomNoise(x.length, -60, 5)); })(),
+  /* one A string pluck that dies away quickly into a quiet room, then nothing but the room */
+  'a2-decay.wav': (() => { const x = join(silence(0.3), S.string(110, { seconds: 1.6, amp: 0.4, decay: 0.35 }), silence(8)); return S.mix(x, S.roomNoise(x.length, -62, 6)); })(),
 };
 for (const [name, s] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), wav(s));
 if (require.main === module) console.log('wrote', Object.keys(files).join(', '), 'to', dir);

@@ -6,9 +6,12 @@
        (https://user.github.io/repo/), and any missing asset or request to another site fails;
      • Chrome's fake microphone plays recorded notes with known pitches, so the whole chain —
        getUserMedia → Web Audio → detector → tracker → model → page — is checked;
-     • permission denied, no microphone, stop/release, view switching, presets, custom tunings,
-       Simple/Advanced, reference pitch, the metronome (regression), and layout from 320 px to
-       desktop with no horizontal overflow.
+     • a low E through a simulated phone microphone, "Pluck again" as a note dies, the signal
+       quality indicator and the microphone-processing report;
+     • permission denied, no microphone, stop/release, view switching (each tool stops when
+       you leave it and stays stopped), presets, custom tunings, Simple/Advanced, reference
+       pitch, the metronome (regression), and layout from 320 px to desktop with no
+       horizontal overflow.
    Screenshots go to tests/screenshots/ (not committed). */
 const http = require('http'), fs = require('fs'), path = require('path'), os = require('os');
 const assert = require('assert');
@@ -81,7 +84,8 @@ t('opens on the tuner, under a project sub-path, with no errors or outside reque
   assert.equal(await page.evaluate(() => document.body.dataset.view), 'tuner');
   assert.ok(await page.isVisible('#gauge'));
   assert.ok(!(await page.isVisible('#view-metronome')));
-  assert.match(await page.title(), /^Tuner/);
+  assert.equal(await page.title(), 'Metronome & Tuner');
+  assert.equal(await page.textContent('#about-title'), 'Metronome & Tuner');
   await page.screenshot({ path: path.join(SHOTS, 'desktop-tuner.png') });
   await done();
 });
@@ -93,6 +97,27 @@ t('low E, 12 ¢ flat: E2, −12 ¢, "Tune up", low E string selected automatical
   assert.ok(Math.abs(r.hz - 81.84) <= 0.1, 'Hz ' + r.hz);
   assert.match(r.status, /^Tune up/); assert.deepEqual(r.active, ['E2']);
   await page.screenshot({ path: path.join(SHOTS, 'phone-e2-flat.png') });
+  await done();
+});
+t('low E through a phone microphone (fundamental cut ~25 dB, room noise): E2, not E3', async () => {
+  const { page, done } = await open({ audio: 'e2-phone.wav' });
+  await page.evaluate(() => metronome.store.set({ mode: 'advanced', help: false }));
+  const r = await listen(page, 2500);
+  assert.equal(r.note, 'E2'); assert.ok(Math.abs(r.cents) <= 4, 'cents ' + r.cents);
+  assert.deepEqual(r.active, ['E2']);
+  assert.match(await page.getAttribute('#sigQuality', 'data-q'), /good|fair/, 'signal quality shown');
+  assert.match(await page.textContent('#micProc'), /Raw sound|asked|requested/, 'processing reported');
+  await page.screenshot({ path: path.join(SHOTS, 'phone-e2-through-phone-mic.png') });
+  await done();
+});
+t('a note that dies away: "Pluck again", the last reading kept and dimmed', async () => {
+  const { page, done } = await open({ audio: 'a2-decay.wav' });
+  await page.click('#micBtn');
+  await page.waitForFunction(() => document.querySelector('#noteName').textContent === 'A2', null, { timeout: 4000 });
+  await page.waitForFunction(() => document.querySelector('#tuneStatusText').textContent === 'Pluck again', null, { timeout: 6000 });
+  assert.equal(await page.textContent('#noteName'), 'A2');
+  assert.equal(await page.getAttribute('#gaugeWrap', 'data-state'), 'hold');
+  await page.screenshot({ path: path.join(SHOTS, 'phone-pluck-again.png') });
   await done();
 });
 t('A2 in tune: "In tune", string marked done', async () => {
@@ -217,7 +242,7 @@ t('feedback, About (version) and privacy are one tap away', async () => {
   assert.match(await page.textContent('#privacy-dlg'), /never recorded, stored or sent/);
   await done();
 });
-t('metronome still works: plays, keys, live dot, deep link', async () => {
+t('metronome still works: plays, keys, deep link', async () => {
   const { page, done } = await open({ viewport: { width: 1280, height: 860 }, mobile: false, hash: '#metronome' });
   assert.equal(await page.evaluate(() => document.body.dataset.view), 'metronome');
   if (await page.isVisible('#gate')) await page.click('#gateBtn');
@@ -227,11 +252,25 @@ t('metronome still works: plays, keys, live dot, deep link', async () => {
   assert.ok(await page.evaluate(() => metronome.engine.running));
   await page.screenshot({ path: path.join(SHOTS, 'desktop-metronome.png') });
   await page.click('[data-view-btn="tuner"]');
-  assert.ok(await page.evaluate(() => document.body.classList.contains('mn-playing')), 'dot shows it is still playing');
   await page.keyboard.press('ArrowUp');
   assert.equal(await page.evaluate(() => metronome.store.get().bpm), 101, 'metronome keys are inactive on the tuner');
-  await page.click('[data-view-btn="metronome"]');
-  await page.keyboard.press('r');
+  await done();
+});
+t('switching tools stops the one you leave, and it stays stopped when you come back', async () => {
+  const { page, done } = await open({ audio: 'a2-intune.wav', viewport: { width: 1280, height: 860 }, mobile: false, hash: '#metronome' });
+  if (await page.isVisible('#gate')) await page.click('#gateBtn');
+  await page.click('#playBtn'); await page.waitForTimeout(1500);
+  assert.ok(await page.evaluate(() => metronome.engine.running), 'metronome playing');
+  await page.click('[data-view-btn="tuner"]'); await page.waitForTimeout(300);
+  const m = await page.evaluate(() => ({ running: metronome.engine.running, elapsed: metronome.engine.practiceElapsed(), beat: document.querySelector('#playBtn').classList.contains('playing') }));
+  assert.deepEqual(m, { running: false, elapsed: 0, beat: false }, 'stopped and reset, not paused');
+  await page.click('#micBtn'); await page.waitForTimeout(1200);
+  assert.equal(await page.evaluate(() => tuner.engine.state), 'listening');
+  await page.click('[data-view-btn="metronome"]'); await page.waitForTimeout(300);
+  assert.equal(await page.evaluate(() => tuner.engine.state), 'idle', 'microphone off on the metronome');
+  assert.ok(!(await page.evaluate(() => metronome.engine.running)), 'the metronome did not restart by itself');
+  await page.click('[data-view-btn="tuner"]'); await page.waitForTimeout(800);
+  assert.equal(await page.evaluate(() => tuner.engine.state), 'idle', 'the tuner did not restart by itself');
   assert.ok(!(await page.evaluate(() => metronome.engine.running)));
   await done();
 });

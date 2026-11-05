@@ -21,8 +21,7 @@
       if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
     }
     document.body.dataset.view = view;
-    const name = (MN.APP && MN.APP.name) || '';
-    document.title = name ? `${LABELS[view]} – ${name}` : LABELS[view];
+    document.title = (MN.APP && MN.APP.name) || LABELS[view];   // the name already says both
     const hash = view === 'metronome' ? '#metronome' : '';
     if ((location.hash || '') !== hash && history.replaceState) history.replaceState(null, '', location.pathname + location.search + hash);
     if (opts.scroll !== false) root.scrollTo({ top: 0 });

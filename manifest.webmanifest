@@ -1,7 +1,7 @@
 {
-  "name": "Tuner & Metronome",
-  "short_name": "Tuner",
-  "description": "A chromatic tuner and a practice metronome, made for musicians, by a musician.",
+  "name": "Metronome & Tuner",
+  "short_name": "Metronome & Tuner",
+  "description": "A practice metronome and a chromatic tuner, made for musicians, by a musician.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

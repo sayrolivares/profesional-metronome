@@ -1,12 +1,12 @@
 <p align="center">
-  <img src="icons/favicon.svg" width="96" alt="Tuner &amp; Metronome logo">
+  <img src="icons/favicon.svg" width="96" alt="Metronome &amp; Tuner logo">
 </p>
 
-<h1 align="center">Tuner &amp; Metronome</h1>
+<h1 align="center">Metronome &amp; Tuner</h1>
 
 <p align="center">
   <em>Made for musicians, by a musician.</em><br>
-  A precise chromatic tuner and a pleasant-sounding practice metronome that run in your browser.
+  A pleasant-sounding practice metronome and a precise chromatic tuner that run in your browser.
 </p>
 
 <p align="center">
@@ -15,7 +15,7 @@
 
 ---
 
-Open the app and the tuner is ready: press start, allow the microphone, play a string. The needle, the note and a plain "tune up / tune down / in tune" tell you what to do, and the frequency is always on screen. The metronome is one tap away. Both work on phones, tablets and computers, with nothing to install or sign up for.
+Open the app and the tuner is ready: press start, allow the microphone, play a string. The needle, the note and a plain "tune up / tune down / in tune" tell you what to do, and the frequency is always on screen. The metronome is one tap away, and switching between them stops the one you leave. Both work on phones, tablets and computers, with nothing to install or sign up for.
 
 ## Tuner
 
@@ -23,6 +23,10 @@ Open the app and the tuner is ready: press start, allow the microphone, play a s
 - Chromatic: detects all twelve notes from B0 (31 Hz, a 5-string bass) up to C8, not just guitar strings
 - Shows the note and octave, the measured frequency in Hz, the target frequency, the difference in Hz and in cents
 - A steady needle with a tolerance zone, and words and arrows as well as colour, so the state is clear at a glance
+- "In tune" holds steadily while you stay within the tolerance, and waits until the pluck has settled
+- "Pluck again" when a note has died away, instead of a reading that wanders
+- Three small bars show how sure the tuner is of what it hears
+- Built for phone microphones: reads a low E even when the microphone has cut its fundamental, and in a noisy room
 - Auto mode follows the string you play (and shows plain note names rather than guess); Manual mode tunes the string you pick
 - Strings you've brought in tune get a mark, so you can work through the instrument one string at a time
 
@@ -94,16 +98,17 @@ The app collects nothing. The tuner listens only while you have pressed start; y
 
 The app is plain HTML, CSS and JavaScript with no framework, no build step and no dependencies.
 
-The tuner reads pitch with the McLeod Pitch Method, a time-domain method that measures how the waveform repeats rather than looking for the loudest frequency, so it isn't fooled by strong harmonics or by the weak low fundamentals that phone microphones pick up. Readings are steadied with a level gate that adapts to the room, a median filter and gentle smoothing. See [docs/TUNER.md](docs/TUNER.md) for the full design, the maths and the test suite.
+The tuner reads pitch with the McLeod Pitch Method, a time-domain method that measures how the waveform repeats rather than looking for the loudest frequency, so it isn't fooled by strong harmonics. Before that, the room's noise floor is removed from the spectrum; after it, the harmonics are checked so that a low string heard through a phone microphone (which cuts its fundamental) isn't read an octave up. Each reading gets a confidence score from how cleanly it repeats, how far it stands above the room, how harmonic it is and whether consecutive readings agree, and a stabiliser handles each pluck's attack, settling, smoothing and decay. Measured on 162 recordings of real instruments through simulated phone microphones, it reads the right note in 99.5 % or more of the frames (95 % in a noisy room) and a wrong note in 0.3 % or fewer. See [docs/TUNER.md](docs/TUNER.md) for the design, the maths, the measurements and the tests, and [docs/TUNER-TESTING.md](docs/TUNER-TESTING.md) for testing it by hand on your own instrument and phone.
 
 Metronome timing uses the Web Audio API clock with a short look-ahead scheduler, driven by a Web Worker so it stays steady even when the window is in the background. Tempo changes take effect within about a tenth of a second, without skipped or doubled clicks. The visuals follow the audio clock rather than running their own timer.
 
 ## Development
 
 ```
-npx serve .            # run locally (the microphone works on localhost)
-npm test               # unit and engine tests, plain node
-npm run test:browser   # end-to-end in Chrome with a fake microphone (needs Playwright)
+npx serve .              # run locally from this folder (the one with index.html); the microphone works on localhost
+npm test                 # unit, scenario and engine tests, plain node
+npm run test:recordings  # the tuner on 165 real recordings (downloads them; needs npm and ffmpeg)
+npm run test:browser     # end-to-end in Chrome with a fake microphone (needs Playwright)
 ```
 
 The site deploys to GitHub Pages as it is: *Settings › Pages ›* deploy from the `main` branch, root folder. Paths are relative, so it works under a project URL. Details, browser notes and how to add an instrument or a tuning are in [docs/TUNER.md](docs/TUNER.md).

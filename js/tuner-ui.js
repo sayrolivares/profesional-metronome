@@ -97,7 +97,7 @@
     const micBtn = $('#micBtn'), level = $('#level'), levelFill = $('#levelFill'), levelGate = $('#levelGate');
     const listenNote = $('#listenNote'), resumeBtn = $('#resumeBtn');
     const alertBox = $('#tunerAlert'), alertText = $('#tunerAlertText'), alertHint = $('#tunerAlertHint');
-    const stringsEl = $('#strings'), measure = $('#measure');
+    const stringsEl = $('#strings'), measure = $('#measure'), sigQ = $('#sigQuality'), micProc = $('#micProc');
     const dbToPct = (db) => Math.max(0, Math.min(100, ((db + 80) / 80) * 100));   // −80…0 dBFS
 
     function setNote(n) {
@@ -117,9 +117,9 @@
       const s = S();
       /* gauge state */
       let state = 'idle';
-      if (m.listening) state = m.hasPitch ? (m.status === 'hold' ? 'hold' : m.inTune ? 'ok' : 'off') : 'wait';
+      if (m.listening) state = m.hasPitch ? (m.faded ? 'hold' : m.inTune ? 'ok' : 'off') : 'wait';
       gaugeWrap.dataset.state = state;
-      gaugeWrap.dataset.dir = m.hasPitch && m.status !== 'hold' ? m.direction : '';
+      gaugeWrap.dataset.dir = m.hasPitch && !m.faded && m.direction !== 'settle' ? m.direction : '';
       gaugeWrap.dataset.peg = m.hasPitch && Math.abs(m.cents) > SPAN ? (m.cents < 0 ? 'low' : 'high') : '';
       setNeedle(m.hasPitch ? m.cents : 0);
 
@@ -140,8 +140,9 @@
       let text = '', dir = '';
       if (!m.listening) text = view.stopReason === 'idle' ? 'Stopped to save battery' : 'Ready when you are';
       else if (m.hasPitch) {
-        dir = m.direction;
-        text = m.direction === 'ok' ? 'In tune' : (m.direction === 'up' ? 'Tune up' : 'Tune down') + semis(m.cents);
+        if (m.faded) text = 'Pluck again';                       // the note has decayed: last reading kept, dimmed
+        else if (m.direction === 'settle') text = 'Settling…';   // within tolerance, the attack not yet over
+        else { dir = m.direction; text = m.direction === 'ok' ? 'In tune' : (m.direction === 'up' ? 'Tune up' : 'Tune down') + semis(m.cents); }
       } else if (m.status === 'noisy') text = 'Too noisy to read';
       else if (m.status === 'searching') text = 'Listening…';
       else text = m.target && m.target.kind === 'string' && s.stringMode === 'manual' ? `Play the ${m.target.label} string` : tuning.strings.length && s.targetMode !== 'freq' ? 'Play any string' : 'Play a note';
@@ -155,6 +156,9 @@
       if (m.gateDb != null) levelGate.style.left = dbToPct(m.gateDb) + '%';
       level.classList.toggle('heard', m.listening && m.gateDb != null && m.db >= m.gateDb);
       micBtn.style.setProperty('--lv', m.listening ? Math.max(0, Math.min(1, (m.db + 50) / 40)).toFixed(2) : 0);
+      /* signal quality: the confidence of the reading on screen */
+      const q = !m.listening ? 'none' : m.hasPitch ? (m.faded ? 'weak' : m.quality || 'none') : m.status === 'searching' || m.status === 'noisy' ? 'weak' : 'none';
+      if (sigQ.dataset.q !== q) { sigQ.dataset.q = q; sigQ.setAttribute('aria-label', `Signal quality: ${q === 'none' ? 'no note' : q}`); }
 
       if (m.listening) {
         if (m.hasPitch || m.status !== 'quiet') view.quietSince = null;
@@ -176,11 +180,11 @@
 
     /* screen readers hear the note and direction when they change, at most every 1.5 s */
     function speak(m, text) {
-      const key = m.hasPitch ? `${m.note ? m.note.text : ''} ${m.direction}` : text;
+      const key = m.hasPitch && !m.faded ? `${m.note ? m.note.text : ''} ${m.direction}` : text;
       const now = performance.now();
       if (key === view.announced || now - view.announceAt < 1500) return;
       view.announced = key; view.announceAt = now;
-      announce.textContent = m.hasPitch ? `${m.note ? m.note.text.replace('♯', ' sharp').replace('♭', ' flat') : ''}, ${text}` : text;
+      announce.textContent = m.hasPitch && !m.faded ? `${m.note ? m.note.text.replace('♯', ' sharp').replace('♭', ' flat') : ''}, ${text}` : text;
     }
 
     /* ================= strings ================= */
@@ -222,7 +226,7 @@
       mCells.cents.textContent = p ? N.signed(m.cents, 1) + ' ¢' : '–';
       mCells.nearest.textContent = p ? `${m.note.text} ${N.signed(m.nearestCents, 1)} ¢` : '–';
       mCells.ref.textContent = `A4 ${N.hz(s.a4, 1)} Hz`;
-      mCells.conf.textContent = m && m.listening && m.clarity ? Math.round(m.clarity * 100) + '%' : '–';
+      mCells.conf.textContent = m && m.listening && m.hasPitch ? (m.faded ? 'faded' : `${Math.round((m.confidence || 0) * 100)}% (${m.quality})`) : '–';
       mCells.level.textContent = m && m.listening && m.db > -119 ? Math.round(m.db) + ' dB' : '–';
     }
 
@@ -315,6 +319,25 @@
       else if (view.permission === 'denied' || (st === 'error' && engine.error && engine.error.code === 'denied')) { text = 'Blocked in this browser’s site settings'; bad = true; }
       micStatus.textContent = text;
       micStatus.classList.toggle('bad', bad);
+      renderProcessing();
+    }
+    /* what the browser did with the request to switch voice processing off */
+    const PROC_NAMES = { echoCancellation: 'echo cancellation', noiseSuppression: 'noise suppression', autoGainControl: 'automatic gain' };
+    function renderProcessing() {
+      const p = engine.state === 'listening' || engine.state === 'suspended' ? engine.processing : null;
+      micProc.hidden = !p;
+      if (!p) return;
+      const list = (keys) => { const n = keys.map((k) => PROC_NAMES[k]); return n.length > 1 ? n.slice(0, -1).join(', ') + ' and ' + n[n.length - 1] : n[0]; };
+      const unknown = Object.keys(PROC_NAMES).filter((k) => p[k] === null);
+      let text;
+      if (p.on.length) {
+        text = `This browser kept ${list(p.on)} on. The tuner still works`
+          + (p.on.includes('noiseSuppression') ? '; a long note may fade sooner, so pluck again if the reading drops' : '')
+          + (p.on.includes('autoGainControl') ? '; the end of a note is judged by how clear it is rather than how loud' : '') + '.';
+      } else if (unknown.length === 3) text = 'Raw sound requested (echo cancellation, noise suppression and automatic gain off); this browser doesn’t report whether it complied.';
+      else text = 'Raw sound: ' + list(Object.keys(PROC_NAMES).filter((k) => p[k] === false)) + ' off' + (unknown.length ? ` (${list(unknown)} not reported)` : '') + '.';
+      micProc.textContent = text;
+      micProc.classList.toggle('warn', p.on.length > 0);
     }
     async function refreshDevices() {
       const list = await engine.input.devices();
@@ -433,7 +456,8 @@
       sigStats.textContent = '';
       sigStats.append(
         stat('Level', reading && reading.db > -119 ? `${Math.round(reading.db)} dBFS` : '–'),
-        stat('Confidence', reading && reading.clarity ? `${Math.round(reading.clarity * 100)}%` : '–'),
+        stat('Clarity', reading && reading.clarity ? `${Math.round(reading.clarity * 100)}%` : '–'),
+        stat('Confidence', reading && reading.confidence ? `${Math.round(reading.confidence * 100)}%` : '–'),
         stat('Sample rate', sr ? `${(sr / 1000).toFixed(1)} kHz` : '–'),
         stat('Window', sr ? `${Math.round((engine.windowSize() / sr) * 1000)} ms` : '–'));
     }
@@ -578,7 +602,7 @@
       const s = S();
       engine.setGate(MN.tunerSettings.SENSITIVITY[s.sensitivity]);
       const lows = tuning.strings.map((x, i) => T.stringFreq(tuning, i, s.a4, s.temperament)).filter((f) => f > 0);
-      engine.setLowest(lows.length ? Math.min(...lows) : 30);
+      engine.setLowest(lows.length ? Math.min(...lows) : 30, lows.length ? Math.max(...lows) : 0);
       engine.setHint(s.targetMode === 'freq' ? s.customHz : s.stringMode === 'manual' && tuning.strings.length ? T.stringFreq(tuning, Math.min(s.stringIndex, tuning.strings.length - 1), s.a4, s.temperament) : 0);
     }
     function onTuningChanged() {
