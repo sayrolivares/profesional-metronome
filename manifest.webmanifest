@@ -1,16 +1,41 @@
 {
-  "name": "Metronome",
-  "short_name": "Metronome",
-  "description": "A practice metronome made for musicians, by a musician.",
+  "name": "Tuner & Metronome",
+  "short_name": "Tuner",
+  "description": "A chromatic tuner and a practice metronome, made for musicians, by a musician.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#1b1d21",
-  "theme_color": "#1b1d21",
+  "background_color": "#220d0d",
+  "theme_color": "#220d0d",
   "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Tuner",
+      "url": "./",
+      "description": "Tune with the microphone"
+    },
+    {
+      "name": "Metronome",
+      "url": "./#metronome",
+      "description": "Open the metronome"
+    }
   ]
 }

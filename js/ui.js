@@ -50,11 +50,12 @@
     };
     const toastEl = $('#toast'); let toastT;
     const toast = (msg) => { toastEl.textContent = msg; toastEl.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('on'), 2600); };
+    MN.toast = toast;   // shared with the tuner
     const chime = () => { if (!engine.ctx) return; const t = engine.now() + 0.05; engine.play('bell', 'beat', t, { vel: 0.6 }); engine.play('bell', 'beat', t + 0.35, { vel: 0.6, pitch: 1.5 }); };
     const tapper = new R.TapTempo();
 
     /* ================= help, dialogs, about ================= */
-    MN.help.init(store);
+    MN.helpTip = MN.help.init(store);   // { hide }, also used by the tuner
     MN.dialogs.init();
     const APP = MN.APP;
     $('#appVersion').textContent = APP.version;
@@ -84,8 +85,13 @@
     /* ================= audio gate & device state ================= */
     const gate = $('#gate'), gateTitle = $('#gateTitle'), gateText = $('#gateText'), gateBtn = $('#gateBtn');
     let gateMode = 'first';
-    const seen = (() => { try { return localStorage.getItem('metronome.v1.audioOk'); } catch (e) { return null; } })();
-    if (seen) gate.classList.add('hidden');
+    const seen = () => { try { return localStorage.getItem('metronome.v1.audioOk'); } catch (e) { return null; } };
+    /* The app opens on the tuner, so the first-visit prompt waits until the metronome is
+       actually opened, and leaves with it. */
+    window.addEventListener('mn:view', (e) => {
+      if (e.detail.view === 'metronome' && gateMode === 'first' && !seen() && !engine.ctx) gate.classList.remove('hidden');
+      else if (e.detail.view !== 'metronome' && gateMode === 'first') gate.classList.add('hidden');
+    });
     const showGate = (mode) => {
       gateMode = mode;
       if (mode === 'resume') { gateTitle.textContent = 'Sound paused'; gateText.textContent = 'Your device paused the audio, for example after a call or when another app took over. Tap to bring the sound back.'; gateBtn.textContent = 'Resume sound'; gate.classList.add('soft'); }
@@ -767,7 +773,8 @@
     const table = $('#markingTable');
     for (const m of R.MARKINGS) table.append(el('tr', { dataset: { name: m.name } }, el('td', { text: m.name }), el('td', { text: m.max >= 300 ? `${m.min}+` : `${m.min}–${m.max}` })));
     const SHORTCUTS = [['Space', 'Play / pause'], ['↑ / ↓', 'Tempo ±1 (Shift ±5, Alt ±10)'], ['T', 'Tap tempo'], ['R', 'Stop and reset'], ['M', 'Mute / unmute'], ['H', 'Help hints on / off'], ['Esc', 'Close dialogs, leave a field']];
-    for (const id of ['#shortcuts', '#shortcuts2']) for (const [k, d] of SHORTCUTS) $(id).append(el('kbd', { text: k }), el('span', { text: d }));
+    $('#shortcuts2').append(el('h4', { class: 'sc-head', text: 'Metronome' }));
+    for (const id of ['#shortcuts', '#shortcuts2']) for (const [k, d] of SHORTCUTS) if (!(id === '#shortcuts2' && k === 'H')) $(id).append(el('kbd', { text: k }), el('span', { text: d }));
     $('#resetAll').addEventListener('click', () => { if (confirm('Reset every setting to its default? Presets, saved patterns and the log are kept.')) { stopAll(); store.reset(); toast('Settings reset'); } });
 
     /* ================= keyboard ================= */
@@ -776,6 +783,7 @@
       if (MN.dialogs.isOpen()) return;
       if (e.key === 'Escape') { if (isTyping(t)) t.blur(); return; }
       if (isTyping(t) || e.metaKey || e.ctrlKey) return;
+      if (document.body.dataset.view && document.body.dataset.view !== 'metronome' && e.key !== 'h' && e.key !== 'H') return;
       const s = S();
       switch (e.key) {
         case ' ': e.preventDefault(); if (!e.repeat) (engine.running ? pause() : start()); break;

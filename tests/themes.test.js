@@ -12,6 +12,7 @@ const RULES = [
   ['accentInk', 'accent', 4.5],              // labels on selected buttons, the play icon
   ['accent', 'bg', 3], ['accent', 'surface', 3], ['accent', 'surface2', 3], // accent as text and UI
   ['danger', 'bg', 3], ['danger', 'surface', 3], ['poly', 'bg', 2.5],
+  ['ok', 'bg', 3], ['ok', 'surface', 3], ['ok', 'surface2', 3],   // tuner: "in tune"
 ];
 let n = 0, fails = [];
 for (const p of T.PALETTES) for (const mode of ['light', 'dark']) {
@@ -23,5 +24,6 @@ for (const p of T.PALETTES) for (const mode of ['light', 'dark']) {
   }
 }
 assert.equal(new Set(T.PALETTES.map((p) => p.id)).size, T.PALETTES.length, 'duplicate palette id');
+assert.ok(T.PALETTES.some((p) => p.id === T.DEFAULT), 'default palette exists');
 if (fails.length) { console.error(fails.join('\n')); process.exit(1); }
 console.log(`ok — ${T.PALETTES.length} palettes × 2 modes, ${n} contrast checks\n\n1 theme test passed`);

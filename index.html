@@ -3,14 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Metronome — practice with precision</title>
-<meta name="description" content="A professional metronome for musicians: refined sounds, subdivisions, polyrhythms, tempo trainer, silent bars and practice sessions.">
-<meta name="theme-color" content="#1b1d21" media="(prefers-color-scheme: dark)">
-<meta name="theme-color" content="#f5f2ec" media="(prefers-color-scheme: light)">
+<title>Tuner – Tuner &amp; Metronome</title>
+<meta name="description" content="A precise chromatic tuner and a practice metronome for musicians. Guitar, bass, violin, viola, cello, double bass, ukulele and mandolin. Runs in your browser; sound never leaves your device.">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; media-src 'self'; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'" data-standalone-only>
+<meta name="theme-color" content="#220d0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f4f4da" media="(prefers-color-scheme: light)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Metronome">
+<meta name="apple-mobile-web-app-title" content="Tuner">
 <meta name="format-detection" content="telephone=no">
 <link rel="manifest" href="manifest.webmanifest" data-standalone-only>
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml" data-standalone-only>
@@ -38,9 +39,19 @@
 </svg>
 <div class="app">
   <header class="top">
-    <button class="brand-btn" id="aboutBtn" data-open="about" aria-label="About Metronome" data-help="About::Version, credits and privacy."><svg class="logo" aria-hidden="true" focusable="false"><use href="#logo-mark" width="100%" height="100%"/></svg><span class="brand-name">Metronome</span></button>
+    <div class="top-start">
+      <button class="brand-btn" id="aboutBtn" data-open="about" aria-label="About this app" data-help="About::Version, credits and privacy."><svg class="logo" aria-hidden="true" focusable="false"><use href="#logo-mark" width="100%" height="100%"/></svg></button>
+      <nav class="views" id="viewNav" aria-label="Tools">
+        <a href="#tuner" class="view-btn" data-view-btn="tuner" data-help="Tuner::Tune any instrument with your microphone.">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3v7a3 3 0 0 0 6 0V3"/><path d="M12 13v8"/><path d="M5.5 7.5a7 7 0 0 0 0 5M18.5 7.5a7 7 0 0 1 0 5"/></svg>
+          <span>Tuner</span></a>
+        <a href="#metronome" class="view-btn" data-view-btn="metronome" data-help="Metronome::Keep time with clicks, subdivisions and practice tools.">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3h4l4.5 17h-13z"/><path d="M12 15l5-8"/><path d="M7 17h10"/></svg>
+          <span>Metronome</span><i class="live-dot" aria-hidden="true"></i></a>
+      </nav>
+    </div>
     <div class="top-actions">
-      <div class="seg" id="modeSeg" data-help="Simple or Advanced::Simple shows only tempo, meter, sound and the transport. Advanced adds subdivisions, accents, sound design and the practice tools. Your settings are kept either way.">
+      <div class="seg" id="modeSeg" data-help="Simple or Advanced::Simple keeps each tool to the essentials. Advanced adds the professional controls: reference pitch, tolerance, frequency targets, the tone generator and signal view in the tuner; subdivisions, accents, sound design and practice tools in the metronome. Your settings are kept either way.">
         <button data-mode="simple" class="on">Simple</button>
         <button data-mode="advanced">Advanced</button>
       </div>
@@ -50,15 +61,173 @@
       <button class="icon-btn" id="feedbackBtn" data-open="feedback" aria-label="Feedback and contact" data-help="Feedback::Report a bug, suggest a feature or get in touch with the developer.">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12.5a7.5 7.5 0 0 1-11.1 6.6L4 20l1-4.3A7.5 7.5 0 1 1 20 12.5z"/><path d="M8.8 12.5h.01M12.3 12.5h.01M15.8 12.5h.01"/></svg>
       </button>
-      <button class="icon-btn" id="prefsBtn" data-open="prefs" aria-label="Preferences" data-help="Preferences::Light, dark or automatic theme, six color palettes, and American or British note names.">
+      <button class="icon-btn" id="prefsBtn" data-open="prefs" aria-label="Preferences" data-help="Preferences::Light, dark or automatic theme, color palettes, and American or British note names.">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 0 0 0 18c1.1 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.8-1.7 1.7-1.7H16a5 5 0 0 0 5-5c0-4-4-7.2-9-7.2z"/><circle cx="7.5" cy="11" r="1.2" fill="currentColor" stroke="none"/><circle cx="10.5" cy="7.3" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="7.6" r="1.2" fill="currentColor" stroke="none"/></svg>
       </button>
-      <button class="icon-btn" id="helpBtn" data-open="shortcuts" aria-label="Keyboard shortcuts" data-help="Keyboard shortcuts::Every key the metronome responds to.">
+      <button class="icon-btn" id="helpBtn" data-open="shortcuts" aria-label="Keyboard shortcuts" data-help="Keyboard shortcuts::Every key the tuner and the metronome respond to.">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h.01M11 10h.01M15 10h.01M7 14h10"/></svg>
       </button>
     </div>
   </header>
 
+  <section class="view tuner" data-view="tuner" id="view-tuner" aria-label="Tuner">
+    <div class="tuner-grid">
+      <div class="tuner-face">
+        <div class="tuner-bar">
+          <button class="tuning-btn" id="tuningBtn" data-open="tunings" aria-haspopup="dialog" data-help="Instrument and tuning::Choose what you are tuning: guitar, bass, violin, viola, cello, double bass, ukulele, mandolin and more, in standard and alternate tunings, or your own.">
+            <span class="tn" id="tuningName">Standard</span>
+            <span class="ti" id="tuningInst">Guitar</span>
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg>
+          </button>
+          <div class="seg" id="stringModeSeg" role="group" aria-label="String selection" data-help="Auto or Manual::Auto follows whichever string you play, and switches to plain note names when it isn’t sure. Manual tunes the string you pick, whatever you play. Tapping a string switches to Manual.">
+            <button data-v="auto">Auto</button><button data-v="manual">Manual</button>
+          </div>
+        </div>
+
+        <div class="gauge-wrap" id="gaugeWrap" data-state="idle">
+          <svg class="gauge" id="gauge" viewBox="0 36 400 214" aria-hidden="true" focusable="false"></svg>
+          <div class="readout">
+            <div class="big-note" id="noteName" data-help="Note::The nearest note to what you play, with its octave. Middle C is C4; the A string of a violin is A4."><span class="nl">–</span><span class="na"></span><span class="no"></span></div>
+            <div class="hz-line" data-help="Frequency and cents::The frequency you are playing, and how far it is from the target in cents. 100 cents make a semitone."><span class="hz" id="hzNow">–</span><span class="unit">Hz</span><span class="cents" id="centsNow"></span></div>
+            <div class="target-line" id="targetLine" data-help="Target::The frequency you are tuning to, and the difference from what you play. It follows the reference pitch (A4) set in Advanced."></div>
+          </div>
+        </div>
+        <p class="tune-status" id="tuneStatus" data-dir=""><span class="ts-ico" aria-hidden="true"></span><span class="ts-text" id="tuneStatusText">Ready when you are</span></p>
+        <p class="sr-only" id="tuneAnnounce" aria-live="polite"></p>
+
+        <div class="strings" id="strings" role="group" aria-label="Strings"></div>
+
+        <div class="listen">
+          <button class="mic" id="micBtn" aria-pressed="false" aria-label="Start listening" data-help="Start or stop listening::The tuner listens only while this is on. Sound is analysed on this device and never recorded or sent. Key: Space">
+            <svg class="ico-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>
+            <svg class="ico-stop" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1.5"/></svg>
+          </button>
+          <div class="level" id="level" data-help="Input level::How loud the microphone hears your instrument. The mark is the threshold: below it, the tuner waits for a stronger note."><i class="lv-fill" id="levelFill"></i><i class="lv-gate" id="levelGate"></i></div>
+          <p class="listen-note" id="listenNote">Press start and allow the microphone. Sound is analysed on this device and never recorded.</p>
+          <button class="btn small hidden" id="resumeBtn">Continue</button>
+        </div>
+        <div class="tuner-alert" id="tunerAlert" role="alert" hidden>
+          <p class="ta-text" id="tunerAlertText"></p>
+          <p class="ta-hint" id="tunerAlertHint"></p>
+          <button class="btn small" id="tunerRetry">Try again</button>
+        </div>
+        <dl class="measure advanced-only" id="measure" aria-label="Measurements"></dl>
+      </div>
+
+      <aside class="card quick tuner-side" aria-label="Tuner settings">
+        <div class="field">
+          <label for="micSelect">Microphone</label>
+          <p class="mic-status" id="micStatus" data-help="Microphone permission::Whether this site may use the microphone. Your browser asks the first time you press Start; you can change it later in the browser’s site settings.">Asks when you press Start</p>
+          <select id="micSelect" class="hidden" aria-label="Microphone" data-help="Input device::Choose which microphone the tuner listens to. A clip-on or USB microphone hears your instrument more clearly than a laptop’s built-in one."></select>
+        </div>
+        <div class="field advanced-only">
+          <label for="a4Input">Reference pitch</label>
+          <div class="row nowrap ref-row">
+            <span class="ref-name">A4 =</span>
+            <span class="stepper" data-help="Reference pitch::The frequency of A4. 440 Hz is the standard; many orchestras use 442 or 443 Hz, baroque ensembles often 415 Hz. Every note and string follows it. Allowed: 400 to 480 Hz.">
+              <button type="button" id="a4Minus" aria-label="Lower reference pitch by 0.1 hertz">−</button>
+              <input id="a4Input" type="number" inputmode="decimal" min="400" max="480" step="0.1" aria-label="A4 in hertz">
+              <button type="button" id="a4Plus" aria-label="Raise reference pitch by 0.1 hertz">+</button>
+            </span>
+            <span class="unit">Hz</span>
+          </div>
+          <div class="row ref-picks" id="a4Picks"></div>
+        </div>
+        <div class="field advanced-only">
+          <span class="field-label">Tolerance</span>
+          <div class="seg" id="tolSeg" role="group" aria-label="Tolerance" data-help="Tolerance::How close counts as in tune, in cents either side of the target. ±3 suits most practice; ±1 for recording and fine work."></div>
+        </div>
+        <div class="row between advanced-only">
+          <span class="field-label">Note names</span>
+          <div class="seg" id="accSeg" role="group" aria-label="Note names" data-help="Note names::Spell in-between notes with sharps (C♯) or flats (D♭). Flat tunings, such as half step down, always use flats.">
+            <button data-v="sharp">C♯</button><button data-v="flat">D♭</button>
+          </div>
+        </div>
+        <div class="row between advanced-only">
+          <span class="field-label">Sensitivity</span>
+          <div class="seg" id="sensSeg" role="group" aria-label="Sensitivity" data-help="Sensitivity::High picks up quiet instruments and distant microphones. Low ignores more background noise in a loud room.">
+            <button data-v="low">Low</button><button data-v="normal">Normal</button><button data-v="high">High</button>
+          </div>
+        </div>
+        <div class="row between advanced-only">
+          <span class="field-label">Temperament</span>
+          <span class="temperament" id="temperament" data-help="Temperament::How the twelve notes are spaced. Equal temperament, where every semitone is the same size, is the standard for fretted and keyboard instruments and the only one available for now.">Equal</span>
+        </div>
+        <div class="row between advanced-only">
+          <span class="field-label">Measurements</span>
+          <button class="switch" id="detailSw" aria-label="Show measurements" data-help="Measurements::Show the full table under the strings: measured and target frequency, the difference in hertz and cents, nearest note, reference pitch and how confident the reading is."></button>
+        </div>
+      </aside>
+    </div>
+
+    <div class="panel-grid tuner-panels advanced-only">
+      <div class="card">
+        <h3>Tune to a frequency <button class="switch" id="freqSw" aria-label="Tune to a frequency" data-help="Tune to a frequency::Compare what you play with any frequency instead of the nearest note or string, for historical pitches, drones or special arrangements."></button></h3>
+        <p class="sub">Any target from 25 Hz to 4.2 kHz, measured in cents.</p>
+        <div class="stack">
+          <div class="row nowrap">
+            <span class="stepper wide" data-help="Target frequency::Type a value in hertz and press Enter, or use the buttons for 0.1 Hz steps.">
+              <button type="button" id="freqMinus" aria-label="Lower by 0.1 hertz">−</button>
+              <input id="freqInput" type="number" inputmode="decimal" min="25" max="4200" step="0.01" aria-label="Target frequency in hertz">
+              <button type="button" id="freqPlus" aria-label="Raise by 0.1 hertz">+</button>
+            </span>
+            <span class="unit">Hz</span>
+            <span class="note" id="freqNote"></span>
+          </div>
+          <div class="row">
+            <button class="btn small" id="freqFromNote" data-help="Use the last note::Copy the frequency you just played into the target.">Use last measured</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Reference tone <button class="switch" id="toneSw" aria-label="Reference tone" data-help="Reference tone::Plays a steady pitch to tune against by ear. It follows the reference pitch (A4)."></button></h3>
+        <p class="sub">A steady pitch to tune against by ear.</p>
+        <div class="stack">
+          <div class="row nowrap">
+            <select id="toneNote" aria-label="Note" data-help="Note::Pick a note; the frequency follows the reference pitch."></select>
+            <select id="toneOct" aria-label="Octave" data-help="Octave::Middle C is C4."></select>
+            <span class="stepper wide" data-help="Frequency::Or type any frequency from 20 Hz to 5 kHz and press Enter.">
+              <input id="toneHz" type="number" inputmode="decimal" min="20" max="5000" step="0.01" aria-label="Tone frequency in hertz">
+            </span>
+            <span class="unit">Hz</span>
+          </div>
+          <div class="row between">
+            <div class="seg" id="waveSeg" role="group" aria-label="Waveform" data-help="Waveform::Sine is pure and soft. Triangle adds gentle overtones and is easier to hear on small speakers.">
+              <button data-v="sine">Sine</button><button data-v="triangle">Triangle</button>
+            </div>
+            <button class="btn small" id="toneFromTarget" data-help="Play the target::Set the tone to the string or note you are tuning to.">Use target</button>
+          </div>
+          <div class="slider-row"><span>Volume</span><input type="range" id="toneVol" min="0" max="1" step="0.01" aria-label="Tone volume" data-help="Volume::Loudness of the reference tone."><b id="toneVolV"></b></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Signal</h3>
+        <p class="sub">What the microphone hears, steadied on each cycle of the note.</p>
+        <canvas class="scope" id="scope" width="600" height="150" aria-label="Waveform of the input signal" role="img" data-help="Waveform::A live picture of the input, lined up on each cycle. A clean, repeating shape means a clear reading; a ragged one means noise or several notes at once."></canvas>
+        <div class="sig-stats" id="sigStats"></div>
+      </div>
+
+      <div class="card">
+        <h3>Recent notes <button class="btn small ghost" id="historyClear" data-help="Clear::Empty this list. It is never saved and disappears when you close the page.">Clear</button></h3>
+        <p class="sub">Notes you held in tune, this session only.</p>
+        <ol class="history" id="history"></ol>
+      </div>
+
+      <div class="card span">
+        <h3>My tunings</h3>
+        <p class="sub">Your own tunings, saved in this browser.</p>
+        <div class="list" id="myTunings"></div>
+        <div class="row" style="margin-top:12px">
+          <button class="btn small" id="newTuning" data-help="New tuning::Create a tuning for any instrument with up to 12 strings.">New tuning</button>
+          <button class="btn small ghost" id="tunerReset" data-help="Restore defaults::Put the tuner settings back as they were: A4 = 440 Hz, ±3 cents, Auto strings. Your tunings are kept.">Restore defaults</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="view" data-view="metronome" id="view-metronome" aria-label="Metronome" hidden>
   <div class="main-grid">
     <section class="face" aria-label="Metronome">
       <div class="ring-wrap" id="ringWrap">
@@ -278,7 +447,7 @@
     <div class="panel-grid">
       <div class="card">
         <h3>Tuning reference <button class="switch" id="refSw" aria-label="Reference tone" data-help="Reference tone::A steady A4 to tune against by ear. It plays with or without the metronome. It does not listen to your instrument."></button></h3>
-        <p class="sub">A pure tone for tuning by ear. It is a reference pitch, not a tuner.</p>
+        <p class="sub">A pure tone for tuning by ear. To tune with the microphone, open the Tuner.</p>
         <div class="stack">
           <div class="slider-row"><span>A4 =</span><input type="range" id="refFreq" min="430" max="450" step="0.5" aria-label="Reference frequency" data-help="A4 frequency::From 430 to 450 Hz. 440 is the standard; 442–443 is common in orchestras."><b id="refFreqV">440 Hz</b></div>
           <div class="row"><button class="chip" data-ref="432">432</button><button class="chip" data-ref="440">440</button><button class="chip" data-ref="442">442</button><button class="chip" data-ref="443">443</button></div>
@@ -306,13 +475,15 @@
     </div>
   </section>
 
+  </section>
+
   <footer class="foot">
     <p class="motto">Made for musicians, by a musician</p>
     <nav aria-label="About this app"><button data-open="about">About</button><button data-open="privacy">Privacy</button><button data-open="feedback">Feedback</button></nav>
   </footer>
 </div>
 
-<div class="gate" id="gate">
+<div class="gate hidden" id="gate">
   <div class="box">
     <h2 id="gateTitle">Metronome</h2>
     <p id="gateText">Browsers keep audio silent until you touch the page. Tap below to enable sound.</p>
@@ -379,17 +550,40 @@
 <div class="dlg" id="about-dlg" role="dialog" aria-modal="true" aria-labelledby="about-title" hidden>
   <div class="dlg-box" tabindex="-1"><span class="dlg-grip"></span><button class="dlg-x" data-close aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     <svg class="logo about-logo" aria-hidden="true" focusable="false"><use href="#logo-mark" width="100%" height="100%"/></svg>
-    <h2 id="about-title">Metronome</h2>
+    <h2 id="about-title" class="app-name">Tuner &amp; Metronome</h2>
     <div class="version">Version <b id="appVersion">1.4.0</b><span id="appReleased">November 2026</span></div>
     <p class="motto-line">Made for musicians, by a musician</p>
-    <p>A practice metronome with refined sounds, subdivisions, polyrhythms and practice tools. Free, not for profit, with no accounts, ads or tracking.</p>
+    <p>A chromatic tuner and a practice metronome, built to be used every day. Free, not for profit, with no accounts, ads or tracking.</p>
     <div class="about-links">
       <button class="btn small" data-open="feedback">Feedback</button>
       <button class="btn small" data-open="privacy">Privacy</button>
       <button class="btn small" data-open="prefs">Preferences</button>
       <button class="btn small" data-open="shortcuts">Keyboard shortcuts</button>
     </div>
-    <p class="credits">Designed and built by @sayrolivares. Typeface: Outfit, by the Outfit Project Authors, under the SIL Open Font License. Every sound is synthesized in your browser.</p>
+    <p class="credits">Designed and built by @sayrolivares. Typefaces: Outfit and Fraunces, by their project authors, under the SIL Open Font License. The tuner analyses sound on your device, and every sound you hear is synthesized in your browser.</p>
+  </div>
+</div>
+
+<div class="dlg" id="tunings-dlg" role="dialog" aria-modal="true" aria-labelledby="tunings-title" hidden>
+  <div class="dlg-box tunings-box" tabindex="-1"><span class="dlg-grip"></span><button class="dlg-x" data-close aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <h2 id="tunings-title">Instrument and tuning</h2>
+    <div class="inst-picks" id="instPicks" role="tablist" aria-label="Instruments"></div>
+    <div class="tuning-list" id="tuningList" role="list"></div>
+    <form class="tuning-editor" id="tuningEditor" hidden novalidate>
+      <h3 id="editorTitle">New tuning</h3>
+      <label class="field"><span class="field-label">Name</span><input class="input" id="edName" maxlength="40" autocomplete="off" placeholder="Nashville high strung"></label>
+      <label class="field"><span class="field-label">Instrument</span><select id="edInst"></select></label>
+      <label class="field"><span class="field-label">Strings, lowest first</span><input class="input" id="edNotes" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="E2 A2 D3 G3 B3 E4"></label>
+      <div class="ed-preview" id="edPreview" aria-live="polite"></div>
+      <p class="ed-errors" id="edErrors" role="alert"></p>
+      <div class="row between">
+        <button type="button" class="btn small ghost danger" id="edDelete">Delete</button>
+        <div class="row">
+          <button type="button" class="btn small ghost" id="edCancel">Cancel</button>
+          <button type="submit" class="btn small primary" id="edSave">Save tuning</button>
+        </div>
+      </div>
+    </form>
   </div>
 </div>
 
@@ -397,22 +591,24 @@
   <div class="dlg-box privacy-body" tabindex="-1"><span class="dlg-grip"></span><button class="dlg-x" data-close aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     <h2 id="privacy-title">Privacy</h2>
 <!-- privacy:start -->
-    <p class="lead">Metronome collects nothing about you. There are no accounts, analytics, trackers, cookies or ads, and no data is sold or shared, because none is gathered in the first place.</p>
-    <h3>Not for profit</h3>
-    <p>Metronome is currently a free, not-for-profit project. It earns nothing from you or from your data.</p>
-    <h3>What stays on your device</h3>
-    <p>Your settings, presets, saved accent patterns and practice log are kept in your browser’s local storage, on your own device. They are never sent anywhere. Clearing this site’s data in your browser removes them; Reset all settings and Clear log in the app remove their parts.</p>
-    <h3>No trackers, no ads</h3>
-    <p>The app loads no analytics, advertising or third-party scripts and sets no cookies. Its typeface and sounds are part of the app itself, so using it doesn’t contact any other company.</p>
-    <h3>Hosting</h3>
-    <p>The site is hosted on Vercel. Like any web host, Vercel handles the technical details needed to deliver the page to you, such as your IP address, under its own privacy policy. No analytics are switched on there either.</p>
-    <h3>Links to other sites</h3>
-    <p>The feedback button opens Instagram or X. Once you are there, their privacy policies apply.</p>
-    <h3>If this changes</h3>
-    <p>This describes the app as it is today. If that ever changes, this page will be updated before the change takes effect, with the date of the update.</p>
-    <h3>Contact</h3>
-    <p>Questions about privacy: @sayrolivares on <a href="https://www.instagram.com/sayrolivares/" target="_blank" rel="noopener noreferrer">Instagram</a> or <a href="https://x.com/sayrolivares" target="_blank" rel="noopener noreferrer">X</a>.</p>
-    <p class="updated">Last updated November 2026</p>
+<p class="lead">This app collects nothing about you. There are no accounts, analytics, trackers, cookies or ads, and no data is sold or shared, because none is gathered in the first place.</p>
+<h3>Not for profit</h3>
+<p>The app is currently a free, not-for-profit project. It earns nothing from you or from your data.</p>
+<h3>The microphone</h3>
+<p>The tuner uses your microphone only while it is listening: after you press Start and your browser asks for your permission. The sound is analysed on your device, as it arrives, to measure its pitch. It is never recorded, stored or sent anywhere. The microphone is released when you press Stop, switch to the metronome, leave or hide the page, or after five minutes without a note. You can withdraw the permission at any time in your browser’s site settings.</p>
+<h3>What stays on your device</h3>
+<p>Your settings, custom tunings, metronome presets, saved accent patterns and practice log are kept in your browser’s local storage, on your own device. They are never sent anywhere. The tuner’s list of recent notes exists only while the page is open. Clearing this site’s data in your browser removes everything; the reset and delete buttons in the app remove their parts.</p>
+<h3>No trackers, no ads</h3>
+<p>The app loads no analytics, advertising or third-party scripts and sets no cookies. Its typefaces and sounds are part of the app itself, so using it doesn’t contact any other company, and the page tells your browser to refuse connections to other sites.</p>
+<h3>Hosting</h3>
+<p>This website is hosted for free using GitHub Pages. When you visit the site, GitHub may automatically process certain technical information, including your IP address, browser information, and access timestamps, to deliver the website and maintain the security and integrity of its hosting service. This information is handled by GitHub, not directly collected or stored by the website owner.</p>
+<h3>Links to other sites</h3>
+<p>The feedback button opens Instagram or X. Once you are there, their privacy policies apply.</p>
+<h3>If this changes</h3>
+<p>This describes the app as it is today. If that ever changes, this page will be updated before the change takes effect, with the date of the update.</p>
+<h3>Contact</h3>
+<p>Questions about privacy: @sayrolivares on <a href="https://www.instagram.com/sayrolivares/" target="_blank" rel="noopener noreferrer">Instagram</a> or <a href="https://x.com/sayrolivares" target="_blank" rel="noopener noreferrer">X</a>.</p>
+<p class="updated">Last updated November 2026</p>
 <!-- privacy:end -->
     <p data-standalone-only style="margin-top:6px"><a href="privacy.html" target="_blank" rel="noopener">Open as a separate page</a></p>
   </div>
@@ -429,6 +625,15 @@
 <script src="js/help.js"></script>
 <script src="js/dialogs.js"></script>
 <script src="js/ui.js"></script>
+<script src="js/notes.js"></script>
+<script src="js/pitch.js"></script>
+<script src="js/tunings.js"></script>
+<script src="js/tuner-store.js"></script>
+<script src="js/tuner-audio.js"></script>
+<script src="js/tuner-engine.js"></script>
+<script src="js/tuner-model.js"></script>
+<script src="js/tuner-ui.js"></script>
+<script src="js/views.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

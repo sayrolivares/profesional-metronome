@@ -1,5 +1,30 @@
 # Changelog
 
+## 2.0.0
+
+The app is now a tuner and a metronome, and it opens on the tuner.
+
+### Added
+- **Chromatic tuner.** Detects every note from B0 (31 Hz) to C8 with the McLeod Pitch Method, a time-domain method that isn't fooled by strong harmonics or weak low fundamentals. Shows the note and octave, measured and target frequency, the difference in Hz and cents, and "tune up / tune down / in tune" in words, arrows and colour.
+- **Instruments:** guitar (11 tunings, including Drop D, half step down, D standard, open tunings, DADGAD and 7-string), bass (4, 5 and 6-string), violin, viola, cello, double bass, ukulele, mandolin and banjo. Auto mode follows the string you play; Manual mode tunes the one you pick. Strings brought in tune are marked.
+- **Custom tunings** for any instrument with up to 12 strings, saved in the browser.
+- **Advanced mode for the tuner:** reference pitch (A4 = 400–480 Hz), tune to a typed frequency, tolerance ±1–10 cents, measurement table, reference tone generator (sine or triangle), live signal view, sensitivity, sharp or flat spelling, microphone picker and a session list of tuned notes. Temperament is equal temperament, built so others can be added.
+- **Tuner and Metronome switch:** in the header on wide screens, a bottom bar on phones. `#metronome` in the address opens the metronome directly, and the home-screen icon offers both as shortcuts. A dot on the Metronome tab shows when it is still playing.
+- **Luthier palette** (walnut, brass and ice blue), now the default. Visitors still on the old default move to it once; the palette can be changed in Preferences as before.
+- **Fraunces**, a self-hosted serif, for the app name, dialog titles, the tuning name and the motto.
+- Keeps the screen awake while the tuner listens.
+- A self-contained `404.html` and `.nojekyll` for GitHub Pages; a Content-Security-Policy that blocks connections to other sites.
+- Tests: note maths, pitch detection on synthetic signals (including an octave-error sweep over every note), the tuner's model, presets and storage, microphone handling with fakes, and an end-to-end browser suite with a fake microphone. `docs/TUNER.md` documents the design.
+
+### Changed
+- The privacy statement describes the microphone: used only while listening, analysed on the device, never recorded or sent, released when you stop, switch, hide the page or after five idle minutes.
+- The in-app privacy text now matches `privacy.html` again (GitHub Pages hosting).
+- The header shows the logo without the name; the app name is in About.
+- The first-visit "Enable audio" prompt appears when the metronome is first opened, not over the tuner.
+- Metronome keyboard shortcuts work while the metronome is shown; the shortcuts dialog lists both tools.
+- `vercel.json` allows the microphone for the site itself (`microphone=(self)`), which the tuner needs.
+- `build.js` also inlines scripts with hyphens in their names.
+
 ## 1.4.0
 
 ### Added

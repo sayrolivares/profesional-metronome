@@ -2,8 +2,8 @@
 (function (root) {
   const MN = (root.MN = root.MN || {});
   MN.APP = Object.freeze({
-    name: 'Metronome',
-    version: '1.4.0',
+    name: 'Tuner & Metronome',
+    version: '2.0.0',
     released: 'November 2026',
     handle: 'sayrolivares',
     links: Object.freeze({

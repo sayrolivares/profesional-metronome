@@ -4,7 +4,11 @@
 (function (root) {
   const MN = (root.MN = root.MN || {});
 
+  /* `ok` is the "in tune" colour of the tuner; palettes without one use their accent. */
   const PALETTES = [
+    { id: 'luthier', name: 'Luthier', blurb: 'Walnut, brass and ice blue',
+      light: { bg: '#f4f4da', surface: '#fbfbf3', surface2: '#efefcb', line: '#d8d4a6', lineStrong: '#bab07c', text: '#302020', muted: '#3c546c', faint: '#57757b', accent: '#846024', accentInk: '#ffffff', poly: '#183c54', ok: '#183c54', danger: '#a3412b' },
+      dark:  { bg: '#220d0d', surface: '#2b1919', surface2: '#372420', line: '#422c20', lineStrong: '#533720', text: '#efefcb', muted: '#a59e87', faint: '#7e7362', accent: '#b09050', accentInk: '#220d0d', poly: '#9cc0cc', ok: '#9cc0cc', danger: '#e0866a' } },
     { id: 'studio', name: 'Studio', blurb: 'Teal and amber',
       light: { bg: '#f5f2ec', surface: '#ffffff', surface2: '#eeeae2', line: '#e0dad0', lineStrong: '#c9c2b5', text: '#25282d', muted: '#6b675f', faint: '#8b857a', accent: '#1f7f7a', accentInk: '#ffffff', poly: '#b8643f', danger: '#b8473a' },
       dark:  { bg: '#1b1d21', surface: '#23262b', surface2: '#2b2f35', line: '#33383f', lineStrong: '#454b54', text: '#f3ede3', muted: '#a29d93', faint: '#757a83', accent: '#e2a75c', accentInk: '#1b1d21', poly: '#7fb7c9', danger: '#e07a69' } },
@@ -25,6 +29,7 @@
       dark:  { bg: '#18151d', surface: '#201c26', surface2: '#29242f', line: '#322c39', lineStrong: '#453d4e', text: '#f1ecf5', muted: '#aba2b5', faint: '#7c7387', accent: '#cba9f0', accentInk: '#18151d', poly: '#7fc4b0', danger: '#ee7f74' } },
   ];
   const byId = Object.fromEntries(PALETTES.map((p) => [p.id, p]));
+  const DEFAULT = 'luthier';
 
   const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
   const toHex = (rgb) => '#' + rgb.map((v) => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('');
@@ -33,10 +38,11 @@
 
   /* Full token set for a palette in one mode (derived values included). */
   function tokens(id, mode) {
-    const p = byId[id] || byId.studio;
+    const p = byId[id] || byId[DEFAULT];
     const c = p[mode === 'dark' ? 'dark' : 'light'];
     const dark = mode === 'dark';
-    return Object.assign({}, c, {
+    return Object.assign({ ok: c.accent }, c, {
+      okSoft: rgba(c.ok || c.accent, dark ? 0.18 : 0.12),
       accentSoft: rgba(c.accent, dark ? 0.16 : 0.13),
       tipBg: dark ? mix(c.surface2, c.text, 0.05) : c.surface,
       shadow: dark ? 'none' : '0 1px 2px rgba(30,25,15,.05)',
@@ -47,10 +53,10 @@
   function block(t) {
     return `--bg:${t.bg};--surface:${t.surface};--surface-2:${t.surface2};--line:${t.line};--line-strong:${t.lineStrong};` +
       `--text:${t.text};--muted:${t.muted};--faint:${t.faint};--accent:${t.accent};--accent-soft:${t.accentSoft};--accent-ink:${t.accentInk};` +
-      `--poly:${t.poly};--danger:${t.danger};--shadow:${t.shadow};--tip-bg:${t.tipBg};--tip-shadow:${t.tipShadow};color-scheme:${t.scheme};`;
+      `--poly:${t.poly};--ok:${t.ok};--ok-soft:${t.okSoft};--danger:${t.danger};--shadow:${t.shadow};--tip-bg:${t.tipBg};--tip-shadow:${t.tipShadow};color-scheme:${t.scheme};`;
   }
   function css() {
-    let out = `:root{${block(tokens('studio', 'light'))}}\n:root[data-theme="dark"]{${block(tokens('studio', 'dark'))}}\n`;
+    let out = `:root{${block(tokens(DEFAULT, 'light'))}}\n:root[data-theme="dark"]{${block(tokens(DEFAULT, 'dark'))}}\n`;
     for (const p of PALETTES) {
       out += `:root[data-palette="${p.id}"]{${block(tokens(p.id, 'light'))}}\n`;
       out += `:root[data-palette="${p.id}"][data-theme="dark"]{${block(tokens(p.id, 'dark'))}}\n`;
@@ -61,10 +67,10 @@
   const MODES = ['light', 'dark', 'auto'];
   const mq = root.matchMedia ? root.matchMedia('(prefers-color-scheme: dark)') : null;
   const resolveMode = (mode) => (mode === 'auto' ? (mq && mq.matches ? 'dark' : 'light') : mode === 'light' ? 'light' : 'dark');
-  let current = { mode: 'dark', palette: 'studio' };
+  let current = { mode: 'dark', palette: DEFAULT };
 
   function apply(mode, palette) {
-    current = { mode: MODES.includes(mode) ? mode : 'dark', palette: byId[palette] ? palette : 'studio' };
+    current = { mode: MODES.includes(mode) ? mode : 'dark', palette: byId[palette] ? palette : DEFAULT };
     const de = document.documentElement;
     const resolved = resolveMode(current.mode);
     de.dataset.theme = resolved;
@@ -81,6 +87,14 @@
     document.head.appendChild(style);
     let saved = {};
     try { saved = JSON.parse(localStorage.getItem('metronome.v1.settings') || '{}') || {}; } catch (e) {}
+    /* 2.0 introduced Luthier as the default. Visitors still on the old default (Studio) move
+       to it once; anyone can switch back in Preferences, and that choice is then kept. */
+    try {
+      if (!localStorage.getItem('app.v2.palette')) {
+        if (!saved.palette || saved.palette === 'studio') { saved.palette = DEFAULT; if (Object.keys(saved).length > 1) localStorage.setItem('metronome.v1.settings', JSON.stringify(saved)); }
+        localStorage.setItem('app.v2.palette', '1');
+      }
+    } catch (e) {}
     apply(saved.theme, saved.palette);
     if (mq) {
       const onChange = () => { if (current.mode === 'auto') apply('auto', current.palette); };
@@ -88,5 +102,5 @@
     }
   }
 
-  MN.themes = { PALETTES, MODES, tokens, css, apply, resolveMode, get current() { return current; } };
+  MN.themes = { PALETTES, MODES, DEFAULT, tokens, css, apply, resolveMode, get current() { return current; } };
 })(typeof window !== 'undefined' ? window : globalThis);

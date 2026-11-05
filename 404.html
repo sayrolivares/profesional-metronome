@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Page not found – Tuner &amp; Metronome</title>
+<!-- Self-contained on purpose: GitHub Pages serves this file for any missing path, at
+     any depth, so relative links to css/ or js/ would break. The only link back goes to
+     the site root, worked out from the address (a project site lives under /repo-name/). -->
+<style>
+  :root { color-scheme: dark light; }
+  html, body { margin: 0; height: 100%; background: #220d0d; color: #efefcb; font: 16px/1.5 "Avenir Next", "Segoe UI", system-ui, sans-serif; }
+  @media (prefers-color-scheme: light) { html, body { background: #f4f4da; color: #302020; } a { color: #846024 !important; } p { color: #3c546c !important; } }
+  main { min-height: 100%; display: grid; place-content: center; text-align: center; padding: 24px; }
+  h1 { font: 400 30px/1.2 "Iowan Old Style", "Palatino Linotype", Georgia, serif; margin: 0 0 8px; }
+  p { color: #a59e87; margin: 0 0 20px; }
+  a { color: #b09050; text-underline-offset: 3px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>This page isn’t here</h1>
+  <p>The address may be mistyped, or the page has moved.</p>
+  <p><a id="home" href="/">Open the tuner</a></p>
+</main>
+<script>
+  (function () {
+    var seg = location.pathname.split('/')[1];
+    if (/\.github\.io$/.test(location.hostname) && seg) document.getElementById('home').href = '/' + seg + '/';
+  })();
+</script>
+</body>
+</html>

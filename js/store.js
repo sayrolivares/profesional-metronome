@@ -19,7 +19,7 @@
     poly: { enabled: false, against: 3 },
     timer: { enabled: false, minutes: 5, seconds: 0, notify: true },
     visual: 'full', pendulum: false,
-    theme: 'dark', palette: 'studio', terms: 'both', mode: 'simple', panel: 'rhythm', help: true,
+    theme: 'dark', palette: 'luthier', terms: 'both', mode: 'simple', panel: 'rhythm', help: true,
     refFreq: 440,
     sessionName: '',
   };
@@ -53,7 +53,7 @@
       else out[k] = typeof v === typeof d ? v : d;
     }
     if (!['light', 'dark', 'auto'].includes(out.theme)) out.theme = 'dark';
-    if (MN.themes && !MN.themes.PALETTES.some((p) => p.id === out.palette)) out.palette = 'studio';
+    if (MN.themes && !MN.themes.PALETTES.some((p) => p.id === out.palette)) out.palette = MN.themes.DEFAULT;
     if (!['us', 'uk', 'both'].includes(out.terms)) out.terms = 'both';
     out.bpm = R.clamp(Math.round(out.bpm), 20, out.maxBpm);
     if (![1, 2, 3, 4, 6, 8].includes(out.subdivision)) out.subdivision = 1;
